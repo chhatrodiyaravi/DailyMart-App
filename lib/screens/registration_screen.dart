@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../providers/users_provider.dart';
+import '../providers/auth_provider.dart';
 
 class RegistrationScreen extends StatefulWidget {
   const RegistrationScreen({super.key});
@@ -21,6 +21,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -32,19 +33,31 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     super.dispose();
   }
 
-  void _submitRegistration() {
-    if (!_formKey.currentState!.validate()) {
+  Future<void> _submitRegistration() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+    FocusScope.of(context).unfocus();
+
+    final bool success = await context.read<AuthProvider>().registerCustomer(
+      name: _nameController.text,
+      email: _emailController.text,
+      password: _passwordController.text,
+      phone: _phoneController.text,
+    );
+
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+
+    if (!success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Registration failed. Email may already be in use.')),
+      );
       return;
     }
 
-    context.read<UsersProvider>().addCustomer(
-      name: _nameController.text,
-      email: _emailController.text,
-    );
-
-    FocusScope.of(context).unfocus();
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Registration successful. Please login.')),
+      const SnackBar(content: Text('Registration successful! Please login.')),
     );
     Navigator.pop(context);
   }
@@ -54,25 +67,30 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Register')),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(height: 10),
                 const Text(
                   'Create Account',
-                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700),
                   textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Start your grocery journey with us',
-                  style: TextStyle(color: Colors.grey.shade700),
+                  'Fill in your details to get started',
                   textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey.shade600),
                 ),
-                const SizedBox(height: 22),
+                const SizedBox(height: 24),
+
+                // Full Name
                 TextFormField(
                   controller: _nameController,
                   textCapitalization: TextCapitalization.words,
@@ -82,17 +100,16 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     prefixIcon: Icon(Icons.person_outline),
                   ),
                   validator: (value) {
-                    final String name = value?.trim() ?? '';
-                    if (name.isEmpty) {
+                    if (value == null || value.trim().isEmpty) {
                       return 'Please enter your full name';
                     }
-                    if (name.length < 2) {
-                      return 'Name is too short';
-                    }
+                    if (value.trim().length < 2) return 'Name is too short';
                     return null;
                   },
                 ),
                 const SizedBox(height: 14),
+
+                // Email
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
@@ -102,17 +119,18 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     prefixIcon: Icon(Icons.email_outlined),
                   ),
                   validator: (value) {
-                    final String email = value?.trim() ?? '';
-                    if (email.isEmpty) {
+                    if (value == null || value.trim().isEmpty) {
                       return 'Please enter your email';
                     }
-                    if (!email.contains('@') || !email.contains('.')) {
+                    if (!value.contains('@') || !value.contains('.')) {
                       return 'Please enter a valid email';
                     }
                     return null;
                   },
                 ),
                 const SizedBox(height: 14),
+
+                // Phone
                 TextFormField(
                   controller: _phoneController,
                   keyboardType: TextInputType.phone,
@@ -122,17 +140,15 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     prefixIcon: Icon(Icons.phone_outlined),
                   ),
                   validator: (value) {
-                    final String phone = (value ?? '').replaceAll(' ', '');
-                    if (phone.isEmpty) {
-                      return 'Please enter your phone number';
-                    }
-                    if (phone.length < 10) {
-                      return 'Phone number must be at least 10 digits';
-                    }
+                    final phone = (value ?? '').replaceAll(' ', '');
+                    if (phone.isEmpty) return 'Please enter your phone number';
+                    if (phone.length < 10) return 'Phone must be at least 10 digits';
                     return null;
                   },
                 ),
                 const SizedBox(height: 14),
+
+                // Password
                 TextFormField(
                   controller: _passwordController,
                   obscureText: _obscurePassword,
@@ -142,9 +158,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     prefixIcon: const Icon(Icons.lock_outline),
                     suffixIcon: IconButton(
                       onPressed: () {
-                        setState(() {
-                          _obscurePassword = !_obscurePassword;
-                        });
+                        setState(() => _obscurePassword = !_obscurePassword);
                       },
                       icon: Icon(
                         _obscurePassword
@@ -154,17 +168,18 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     ),
                   ),
                   validator: (value) {
-                    final String password = value ?? '';
-                    if (password.isEmpty) {
+                    if (value == null || value.isEmpty) {
                       return 'Please create a password';
                     }
-                    if (password.length < 6) {
+                    if (value.length < 6) {
                       return 'Password must be at least 6 characters';
                     }
                     return null;
                   },
                 ),
                 const SizedBox(height: 14),
+
+                // Confirm Password
                 TextFormField(
                   controller: _confirmPasswordController,
                   obscureText: _obscureConfirmPassword,
@@ -174,9 +189,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     prefixIcon: const Icon(Icons.lock_outline),
                     suffixIcon: IconButton(
                       onPressed: () {
-                        setState(() {
-                          _obscureConfirmPassword = !_obscureConfirmPassword;
-                        });
+                        setState(() => _obscureConfirmPassword = !_obscureConfirmPassword);
                       },
                       icon: Icon(
                         _obscureConfirmPassword
@@ -186,7 +199,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     ),
                   ),
                   validator: (value) {
-                    if ((value ?? '').isEmpty) {
+                    if (value == null || value.isEmpty) {
                       return 'Please confirm your password';
                     }
                     if (value != _passwordController.text) {
@@ -195,21 +208,46 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 24),
+
+                // Register Button
                 SizedBox(
                   height: 48,
                   child: FilledButton(
-                    onPressed: _submitRegistration,
+                    onPressed: _isLoading ? null : _submitRegistration,
                     style: FilledButton.styleFrom(
                       backgroundColor: Colors.green.shade700,
                     ),
-                    child: const Text('Create Account'),
+                    child: _isLoading
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text('Create Account', style: TextStyle(fontSize: 16)),
                   ),
+                ),
+                const SizedBox(height: 16),
+
+                // Login link
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text('Already have an account?'),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Login'),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
         ),
+      ),
       ),
     );
   }

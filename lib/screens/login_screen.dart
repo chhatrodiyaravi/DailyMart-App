@@ -18,6 +18,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -26,97 +27,80 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _openHome() {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const MainShellScreen()),
-    );
-  }
+  Future<void> _submitLogin() async {
+    if (!_formKey.currentState!.validate()) return;
 
-  void _openAdmin() {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const AdminShellScreen()),
-    );
-  }
-
-  void _submitLogin() {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
+    setState(() => _isLoading = true);
+    FocusScope.of(context).unfocus();
 
     final AuthProvider auth = context.read<AuthProvider>();
-    final bool isSuccess = auth.loginCustomer(
-      email: _emailController.text,
-      password: _passwordController.text,
-    );
-    if (!isSuccess) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter valid customer credentials.')),
+    final String email = _emailController.text.trim();
+    final String password = _passwordController.text.trim();
+
+    // Try admin login first
+    final bool isAdmin = await auth.loginAdmin(email: email, password: password);
+    if (!mounted) return;
+
+    if (isAdmin) {
+      setState(() => _isLoading = false);
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const AdminShellScreen()),
       );
       return;
     }
 
-    FocusScope.of(context).unfocus();
-    _openHome();
-  }
+    // Try customer login
+    final bool isCustomer = await auth.loginCustomer(email: email, password: password);
+    if (!mounted) return;
+    setState(() => _isLoading = false);
 
-  void _submitAdminLogin() {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-
-    final AuthProvider auth = context.read<AuthProvider>();
-    final bool isSuccess = auth.loginAdmin(
-      email: _emailController.text,
-      password: _passwordController.text,
-    );
-
-    if (!isSuccess) {
-      final AuthProvider authProvider = context.read<AuthProvider>();
-      final String message = authProvider.isUsingDefaultAdminCredentials
-          ? 'Invalid admin credentials. Use admin@grocery.com / Admin@123'
-          : 'Invalid admin credentials. Check ADMIN_EMAIL and ADMIN_PASSWORD values.';
-      ScaffoldMessenger.of(
+    if (isCustomer) {
+      Navigator.pushReplacement(
         context,
-      ).showSnackBar(SnackBar(content: Text(message)));
+        MaterialPageRoute(builder: (_) => const MainShellScreen()),
+      );
       return;
     }
 
-    FocusScope.of(context).unfocus();
-    _openAdmin();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Invalid email or password.')),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Login')),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Icon(
-                  Icons.shopping_bag_outlined,
-                  size: 72,
-                  color: Colors.green.shade700,
-                ),
-                const SizedBox(height: 12),
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Icon(
+                    Icons.shopping_bag_outlined,
+                    size: 64,
+                    color: Colors.green.shade700,
+                  ),
+                const SizedBox(height: 16),
                 const Text(
-                  'Welcome back',
+                  'Welcome Back',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700),
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Login to continue shopping fresh groceries',
+                  'Login to continue',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey.shade700),
+                  style: TextStyle(color: Colors.grey.shade600),
                 ),
-                const SizedBox(height: 22),
+                const SizedBox(height: 30),
+
+                // Email
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
@@ -126,17 +110,18 @@ class _LoginScreenState extends State<LoginScreen> {
                     prefixIcon: Icon(Icons.email_outlined),
                   ),
                   validator: (value) {
-                    final String email = value?.trim() ?? '';
-                    if (email.isEmpty) {
+                    if (value == null || value.trim().isEmpty) {
                       return 'Please enter your email';
                     }
-                    if (!email.contains('@') || !email.contains('.')) {
+                    if (!value.contains('@') || !value.contains('.')) {
                       return 'Please enter a valid email';
                     }
                     return null;
                   },
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 16),
+
+                // Password
                 TextFormField(
                   controller: _passwordController,
                   obscureText: _obscurePassword,
@@ -146,9 +131,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     prefixIcon: const Icon(Icons.lock_outline),
                     suffixIcon: IconButton(
                       onPressed: () {
-                        setState(() {
-                          _obscurePassword = !_obscurePassword;
-                        });
+                        setState(() => _obscurePassword = !_obscurePassword);
                       },
                       icon: Icon(
                         _obscurePassword
@@ -158,45 +141,40 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   validator: (value) {
-                    final String password = value ?? '';
-                    if (password.isEmpty) {
+                    if (value == null || value.isEmpty) {
                       return 'Please enter your password';
                     }
-                    if (password.length < 6) {
+                    if (value.length < 6) {
                       return 'Password must be at least 6 characters';
                     }
                     return null;
                   },
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 24),
+
+                // Login Button
                 SizedBox(
                   height: 48,
                   child: FilledButton(
-                    onPressed: _submitLogin,
+                    onPressed: _isLoading ? null : _submitLogin,
                     style: FilledButton.styleFrom(
                       backgroundColor: Colors.green.shade700,
                     ),
-                    child: const Text('Login'),
+                    child: _isLoading
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text('Login', style: TextStyle(fontSize: 16)),
                   ),
                 ),
-                const SizedBox(height: 10),
-                SizedBox(
-                  height: 46,
-                  child: OutlinedButton.icon(
-                    onPressed: _submitAdminLogin,
-                    icon: const Icon(Icons.admin_panel_settings_outlined),
-                    label: const Text('Login as Admin'),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                TextButton(
-                  onPressed: () {
-                    context.read<AuthProvider>().continueAsGuest();
-                    _openHome();
-                  },
-                  child: const Text('Continue as Guest'),
-                ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 16),
+
+                // Register link
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -218,6 +196,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
         ),
+      ),
       ),
     );
   }

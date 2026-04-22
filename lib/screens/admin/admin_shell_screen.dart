@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
+import '../../providers/orders_provider.dart';
+import '../../providers/users_provider.dart';
 import '../login_screen.dart';
 import 'admin_dashboard_screen.dart';
 import 'admin_orders_screen.dart';
@@ -24,6 +26,15 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
     AdminOrdersScreen(),
     AdminUsersScreen(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<OrdersProvider>().fetchOrders();
+      context.read<UsersProvider>().fetchUsers();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

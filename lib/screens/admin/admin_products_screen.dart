@@ -29,7 +29,7 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
                 ? const Text('No history available.')
                 : ListView.separated(
                     shrinkWrap: true,
-                    itemCount: item.history.length,
+                    itemCount: item.history.length,   
                     separatorBuilder: (_, __) => const Divider(height: 12),
                     itemBuilder: (context, index) {
                       final ProductAuditEntry entry = item.history[index];

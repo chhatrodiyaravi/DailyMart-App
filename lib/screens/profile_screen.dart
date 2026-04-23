@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../providers/auth_provider.dart';
 import 'login_screen.dart';
@@ -18,48 +19,73 @@ class ProfileScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.green.shade50,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.green.shade100),
-            ),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 30,
-                  backgroundColor: Colors.green.shade700,
-                  child: const Text(
-                    'U',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 24,
+          Consumer<AuthProvider>(
+            builder: (context, authProvider, _) {
+              if (authProvider.isGuest) {
+                return const Center(child: Text('Please login to view profile'));
+              }
+              return StreamBuilder<DocumentSnapshot>(
+                stream: FirebaseFirestore.instance.collection('users').doc(authProvider.currentUid).snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError || !snapshot.hasData || !snapshot.data!.exists) {
+                    return const Text('Error loading profile');
+                  }
+                  
+                  final data = snapshot.data!.data() as Map<String, dynamic>;
+                  final name = data['name'] ?? 'User';
+                  final email = data['email'] ?? authProvider.currentEmail;
+                  final phone = data['phone'] ?? 'N/A';
+                  final initial = name.isNotEmpty ? name[0].toUpperCase() : 'U';
+
+                  return Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: Colors.green.shade100),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'User Name',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 18,
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 30,
+                          backgroundColor: Colors.green.shade700,
+                          child: Text(
+                            initial,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 24,
+                            ),
+                          ),
                         ),
-                      ),
-                      SizedBox(height: 4),
-                      Text('user@example.com'),
-                      Text('+91 90000 00000'),
-                    ],
-                  ),
-                ),
-                IconButton(onPressed: () {}, icon: const Icon(Icons.edit)),
-              ],
-            ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                name,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 18,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(email),
+                              Text(phone),
+                            ],
+                          ),
+                        ),
+                        IconButton(onPressed: () {}, icon: const Icon(Icons.edit)),
+                      ],
+                    ),
+                  );
+                },
+              );
+            },
           ),
           const SizedBox(height: 18),
           const Text(
@@ -146,6 +172,7 @@ class ProfileScreen extends StatelessWidget {
               ),
               onPressed: () async {
                 await context.read<AuthProvider>().logout();
+                if (!context.mounted) return;
                 Navigator.pushAndRemoveUntil(
                   context,
                   MaterialPageRoute(builder: (_) => const LoginScreen()),

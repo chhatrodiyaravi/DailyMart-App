@@ -18,6 +18,28 @@ class AuthProvider extends ChangeNotifier {
   String get currentEmail => _firebaseUser?.email ?? 'guest@local';
   String get currentUid => _firebaseUser?.uid ?? '';
 
+  /// Check Firebase Auth state for persisting login sessions
+  Future<void> checkAuthState() async {
+    _firebaseUser = _auth.currentUser;
+    if (_firebaseUser != null) {
+      try {
+        final DocumentSnapshot userDoc =
+            await _db.collection('users').doc(_firebaseUser!.uid).get();
+
+        if (userDoc.exists && userDoc.get('isAdmin') == true) {
+          _role = AppRole.admin;
+        } else {
+          _role = AppRole.customer;
+        }
+      } catch (_) {
+        _role = AppRole.customer;
+      }
+    } else {
+      _role = AppRole.guest;
+    }
+    notifyListeners();
+  }
+
   /// Login existing customer with Firebase Auth
   Future<bool> loginCustomer({
     required String email,

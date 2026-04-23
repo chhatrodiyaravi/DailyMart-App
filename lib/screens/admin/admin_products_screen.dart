@@ -12,60 +12,6 @@ class AdminProductsScreen extends StatefulWidget {
 }
 
 class _AdminProductsScreenState extends State<AdminProductsScreen> {
-  String _formatDateTime(DateTime value) {
-    String twoDigits(int n) => n.toString().padLeft(2, '0');
-    return '${value.year}-${twoDigits(value.month)}-${twoDigits(value.day)} ${twoDigits(value.hour)}:${twoDigits(value.minute)}';
-  }
-
-  void _showHistoryDialog(CatalogProduct item) {
-    showDialog<void>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Product History'),
-          content: SizedBox(
-            width: 360,
-            child: item.history.isEmpty
-                ? const Text('No history available.')
-                : ListView.separated(
-                    shrinkWrap: true,
-                    itemCount: item.history.length,   
-                    separatorBuilder: (_, __) => const Divider(height: 12),
-                    itemBuilder: (context, index) {
-                      final ProductAuditEntry entry = item.history[index];
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${entry.action.toUpperCase()} • ${entry.actor}',
-                            style: const TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(entry.details),
-                          const SizedBox(height: 2),
-                          Text(
-                            _formatDateTime(entry.at),
-                            style: TextStyle(
-                              color: Colors.grey.shade700,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              child: const Text('Close'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   void _openProductDialog({CatalogProduct? existing}) {
     final bool isEdit = existing != null;
     final TextEditingController nameController = TextEditingController(
@@ -278,7 +224,7 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
                                     actor: context
                                         .read<AuthProvider>()
                                         .currentEmail,
-                              );
+                                  );
                             },
                           ),
                         ],
@@ -293,9 +239,9 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
                       IconButton(
                         tooltip: 'Delete product',
                         onPressed: () {
-                          context
-                              .read<ProductCatalogProvider>()
-                              .removeProduct(product.id);
+                          context.read<ProductCatalogProvider>().removeProduct(
+                            product.id,
+                          );
                         },
                         icon: const Icon(Icons.delete_outline),
                       ),

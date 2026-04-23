@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../providers/auth_provider.dart';
 import 'login_screen.dart';
 import 'settings/help_support_screen.dart';
 import 'settings/manage_addresses_screen.dart';
@@ -142,7 +144,8 @@ class ProfileScreen extends StatelessWidget {
               style: FilledButton.styleFrom(
                 backgroundColor: Colors.red.shade600,
               ),
-              onPressed: () {
+              onPressed: () async {
+                await context.read<AuthProvider>().logout();
                 Navigator.pushAndRemoveUntil(
                   context,
                   MaterialPageRoute(builder: (_) => const LoginScreen()),

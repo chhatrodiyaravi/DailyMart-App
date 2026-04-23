@@ -1,76 +1,30 @@
 import 'package:flutter/foundation.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../data/dummy_data.dart';
 import '../models/product.dart';
-
-class ProductAuditEntry {
-  const ProductAuditEntry({
-    required this.action,
-    required this.actor,
-    required this.at,
-    required this.details,
-  });
-
-  final String action;
-  final String actor;
-  final DateTime at;
-  final String details;
-}
 
 class CatalogProduct {
   const CatalogProduct({
     required this.product,
     required this.inStock,
-    required this.updatedAt,
-    required this.lastEditedBy,
-    required this.history,
   });
 
   final Product product;
   final bool inStock;
-  final DateTime updatedAt;
-  final String lastEditedBy;
-  final List<ProductAuditEntry> history;
 
-  CatalogProduct copyWith({
-    Product? product,
-    bool? inStock,
-    DateTime? updatedAt,
-    String? lastEditedBy,
-    List<ProductAuditEntry>? history,
-  }) {
+  CatalogProduct copyWith({Product? product, bool? inStock}) {
     return CatalogProduct(
       product: product ?? this.product,
       inStock: inStock ?? this.inStock,
-      updatedAt: updatedAt ?? this.updatedAt,
-      lastEditedBy: lastEditedBy ?? this.lastEditedBy,
-      history: history ?? this.history,
     );
   }
 }
 
 class ProductCatalogProvider extends ChangeNotifier {
-  ProductCatalogProvider()
-    : _items = DummyData.products
-          .map(
-            (product) => CatalogProduct(
-              product: product,
-              inStock: product.id != 'p5',
-              updatedAt: DateTime.now(),
-              lastEditedBy: 'system',
-              history: <ProductAuditEntry>[
-                ProductAuditEntry(
-                  action: 'seed',
-                  actor: 'system',
-                  at: DateTime.now(),
-                  details: 'Loaded from dummy catalog',
-                ),
-              ],
-            ),
-          )
-          .toList(growable: true);
-
-  final List<CatalogProduct> _items;
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  List<CatalogProduct> _items = [];
+  bool _loaded = false;
 
   List<CatalogProduct> get allProducts =>
       List<CatalogProduct>.unmodifiable(_items);
@@ -82,6 +36,42 @@ class ProductCatalogProvider extends ChangeNotifier {
 
   int get totalCount => _items.length;
   int get outOfStockCount => _items.where((item) => !item.inStock).length;
+
+  /// Fetch all products from Firestore. If Firestore is empty, seed from DummyData.
+  Future<void> fetchProducts() async {
+    final QuerySnapshot snapshot = await _db.collection('products').get();
+
+    if (snapshot.docs.isEmpty && !_loaded) {
+      // Firestore is empty — seed it with DummyData so the app isn't blank
+      for (final Product p in DummyData.products) {
+        final Map<String, dynamic> data = {
+          ...p.toMap(),
+          'inStock': true,
+        };
+        await _db.collection('products').add(data);
+      }
+      // Re-fetch after seeding
+      final QuerySnapshot seeded = await _db.collection('products').get();
+      _items = seeded.docs.map((doc) {
+        final Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+        return CatalogProduct(
+          product: Product.fromMap(doc.id, data),
+          inStock: data['inStock'] ?? true,
+        );
+      }).toList();
+    } else {
+      _items = snapshot.docs.map((doc) {
+        final Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+        return CatalogProduct(
+          product: Product.fromMap(doc.id, data),
+          inStock: data['inStock'] ?? true,
+        );
+      }).toList();
+    }
+
+    _loaded = true;
+    notifyListeners();
+  }
 
   Product productById(String id) {
     return _items.firstWhere((item) => item.product.id == id).product;
@@ -99,38 +89,26 @@ class ProductCatalogProvider extends ChangeNotifier {
         .toList(growable: false);
   }
 
-  void toggleStock(String productId, bool inStock, {String actor = 'system'}) {
-    final int index = _items.indexWhere((item) => item.product.id == productId);
-    if (index == -1) {
-      return;
+  /// Toggle stock status in Firestore
+  Future<void> toggleStock(String productId, bool inStock, {String actor = 'system'}) async {
+    await _db.collection('products').doc(productId).update({'inStock': inStock});
+    final int index =
+        _items.indexWhere((item) => item.product.id == productId);
+    if (index != -1) {
+      _items[index] = _items[index].copyWith(inStock: inStock);
+      notifyListeners();
     }
-    final CatalogProduct current = _items[index];
-    final List<ProductAuditEntry> history =
-        List<ProductAuditEntry>.from(current.history)..insert(
-          0,
-          ProductAuditEntry(
-            action: 'stock',
-            actor: actor,
-            at: DateTime.now(),
-            details: inStock ? 'Marked in stock' : 'Marked out of stock',
-          ),
-        );
-
-    _items[index] = _items[index].copyWith(
-      inStock: inStock,
-      updatedAt: DateTime.now(),
-      lastEditedBy: actor,
-      history: history,
-    );
-    notifyListeners();
   }
 
-  void removeProduct(String productId) {
+  /// Delete product from Firestore
+  Future<void> removeProduct(String productId) async {
+    await _db.collection('products').doc(productId).delete();
     _items.removeWhere((item) => item.product.id == productId);
     notifyListeners();
   }
 
-  void addProduct({
+  /// Add new product to Firestore
+  Future<void> addProduct({
     required String name,
     required String categoryId,
     required double price,
@@ -139,49 +117,39 @@ class ProductCatalogProvider extends ChangeNotifier {
     String? imageUrl,
     String? description,
     String actor = 'system',
-  }) {
-    final String id = 'p${DateTime.now().millisecondsSinceEpoch}';
+  }) async {
     final String normalizedCategory = categoryId.trim().toLowerCase();
     final String section =
         '${normalizedCategory[0].toUpperCase()}${normalizedCategory.substring(1)}';
 
-    final Product product = Product(
-      id: id,
-      name: name.trim(),
-      categoryId: normalizedCategory,
-      rating: rating,
-      price: price,
-      unit: unit.trim().isEmpty ? '1 unit' : unit.trim(),
-      imageUrl: (imageUrl ?? '').trim().isEmpty
+    final Map<String, dynamic> data = {
+      'name': name.trim(),
+      'categoryId': normalizedCategory,
+      'rating': rating,
+      'price': price,
+      'unit': unit.trim().isEmpty ? '1 unit' : unit.trim(),
+      'imageUrl': (imageUrl ?? '').trim().isEmpty
           ? 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=600'
           : imageUrl!.trim(),
-      description: (description ?? '').trim().isEmpty
+      'description': (description ?? '').trim().isEmpty
           ? 'Fresh grocery item added from admin panel.'
           : description!.trim(),
-      deliveryMinutes: 10,
-      section: section,
-    );
+      'deliveryMinutes': 10,
+      'section': section,
+      'inStock': true,
+    };
 
-    _items.add(
-      CatalogProduct(
-        product: product,
-        inStock: true,
-        updatedAt: DateTime.now(),
-        lastEditedBy: actor,
-        history: <ProductAuditEntry>[
-          ProductAuditEntry(
-            action: 'create',
-            actor: actor,
-            at: DateTime.now(),
-            details: 'Created product ${name.trim()}',
-          ),
-        ],
-      ),
-    );
+    final DocumentReference ref = await _db.collection('products').add(data);
+
+    _items.add(CatalogProduct(
+      product: Product.fromMap(ref.id, data),
+      inStock: true,
+    ));
     notifyListeners();
   }
 
-  void updateProduct({
+  /// Update product in Firestore
+  Future<void> updateProduct({
     required String productId,
     required String name,
     required String categoryId,
@@ -191,50 +159,38 @@ class ProductCatalogProvider extends ChangeNotifier {
     required String imageUrl,
     required String description,
     String actor = 'system',
-  }) {
-    final int index = _items.indexWhere((item) => item.product.id == productId);
-    if (index == -1) {
-      return;
-    }
-
-    final CatalogProduct current = _items[index];
-    final List<ProductAuditEntry> history =
-        List<ProductAuditEntry>.from(current.history)..insert(
-          0,
-          ProductAuditEntry(
-            action: 'update',
-            actor: actor,
-            at: DateTime.now(),
-            details: 'Updated basic details',
-          ),
-        );
+  }) async {
     final String normalizedCategory = categoryId.trim().toLowerCase();
     final String section =
         '${normalizedCategory[0].toUpperCase()}${normalizedCategory.substring(1)}';
 
-    final Product updated = Product(
-      id: current.product.id,
-      name: name.trim(),
-      categoryId: normalizedCategory,
-      rating: rating,
-      price: price,
-      unit: unit.trim().isEmpty ? '1 unit' : unit.trim(),
-      imageUrl: imageUrl.trim().isEmpty
+    final Map<String, dynamic> data = {
+      'name': name.trim(),
+      'categoryId': normalizedCategory,
+      'rating': rating,
+      'price': price,
+      'unit': unit.trim().isEmpty ? '1 unit' : unit.trim(),
+      'imageUrl': imageUrl.trim().isEmpty
           ? 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=600'
           : imageUrl.trim(),
-      description: description.trim().isEmpty
+      'description': description.trim().isEmpty
           ? 'Fresh grocery item added from admin panel.'
           : description.trim(),
-      deliveryMinutes: current.product.deliveryMinutes,
-      section: section,
-    );
+      'section': section,
+    };
 
-    _items[index] = current.copyWith(
-      product: updated,
-      updatedAt: DateTime.now(),
-      lastEditedBy: actor,
-      history: history,
-    );
-    notifyListeners();
+    await _db.collection('products').doc(productId).update(data);
+
+    final int index =
+        _items.indexWhere((item) => item.product.id == productId);
+    if (index != -1) {
+      _items[index] = _items[index].copyWith(
+        product: Product.fromMap(productId, {
+          ..._items[index].product.toMap(),
+          ...data,
+        }),
+      );
+      notifyListeners();
+    }
   }
 }

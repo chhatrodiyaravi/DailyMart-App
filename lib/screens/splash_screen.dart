@@ -1,7 +1,7 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../providers/product_catalog_provider.dart';
 import 'login_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -29,15 +29,25 @@ class _SplashScreenState extends State<SplashScreen>
       end: 1.05,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
 
-    Timer(const Duration(seconds: 2), () {
-      if (!mounted) {
-        return;
-      }
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
-      );
-    });
+    _loadAndNavigate();
+  }
+
+  Future<void> _loadAndNavigate() async {
+    // Preload products from Firestore during splash — with timeout so app doesn't hang
+    try {
+      await context
+          .read<ProductCatalogProvider>()
+          .fetchProducts()
+          .timeout(const Duration(seconds: 10));
+    } catch (_) {
+      // If Firestore is unreachable, continue anyway — app will work in offline mode
+    }
+    await Future.delayed(const Duration(seconds: 1));
+    if (!mounted) return;
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+    );
   }
 
   @override

@@ -103,8 +103,8 @@ class CheckoutScreen extends StatelessWidget {
               ),
               onPressed: cart.totalItems == 0
                   ? null
-                  : () {
-                      context.read<OrdersProvider>().placeOrder(
+                  : () async {
+                      await context.read<OrdersProvider>().placeOrder(
                         customer: auth.currentEmail,
                         products: cart.cartProducts,
                         quantities: cart.items,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/auth_provider.dart';
+import '../providers/category_provider.dart';
 import '../providers/product_catalog_provider.dart';
 import 'admin/admin_shell_screen.dart';
 import 'login_screen.dart';
@@ -36,12 +37,12 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Future<void> _loadAndNavigate() async {
-    // Preload products from Firestore during splash — with timeout so app doesn't hang
+    // Preload categories & products from Firestore during splash
     try {
-      await context
-          .read<ProductCatalogProvider>()
-          .fetchProducts()
-          .timeout(const Duration(seconds: 10));
+      await Future.wait([
+        context.read<CategoryProvider>().fetchCategories(),
+        context.read<ProductCatalogProvider>().fetchProducts(),
+      ]).timeout(const Duration(seconds: 10));
     } catch (_) {
       // If Firestore is unreachable, continue anyway — app will work in offline mode
     }

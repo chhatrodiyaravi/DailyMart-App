@@ -14,6 +14,12 @@ class CheckoutScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final CartProvider cart = context.watch<CartProvider>();
     final AuthProvider auth = context.watch<AuthProvider>();
+    final String deliveryAddress = auth.currentUser?.address.isNotEmpty == true
+        ? auth.currentUser!.address
+        : '221B Green Street, Bangalore';
+    final String deliveryLabel = auth.currentUser?.address.isNotEmpty == true
+        ? 'Saved Address'
+        : 'Home';
     final double itemTotal = cart.totalPrice;
     final double deliveryFee = 25;
     final double handlingFee = 8;
@@ -30,13 +36,13 @@ class CheckoutScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Home',
+                Text(
+                  deliveryLabel,
                   style: TextStyle(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '221B Green Street, Bangalore',
+                  deliveryAddress,
                   style: TextStyle(color: Colors.grey.shade700),
                 ),
                 const SizedBox(height: 8),

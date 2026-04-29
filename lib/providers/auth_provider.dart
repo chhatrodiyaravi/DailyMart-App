@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../models/app_user.dart';
+
 enum AppRole { guest, customer, admin }
 
 class AuthProvider extends ChangeNotifier {
@@ -10,13 +12,50 @@ class AuthProvider extends ChangeNotifier {
 
   AppRole _role = AppRole.guest;
   User? _firebaseUser;
+  AppUser? _currentUser;
 
   AppRole get role => _role;
   bool get isAdmin => _role == AppRole.admin;
   bool get isCustomer => _role == AppRole.customer;
   bool get isGuest => _role == AppRole.guest;
+  bool get isAuthenticated => _firebaseUser != null;
   String get currentEmail => _firebaseUser?.email ?? 'guest@local';
   String get currentUid => _firebaseUser?.uid ?? '';
+  AppUser? get currentUser => _currentUser;
+
+  /// Restore the persisted Firebase session after app launch.
+  Future<void> restoreSession() async {
+    final User? savedUser = _auth.currentUser;
+    if (savedUser == null) {
+      _firebaseUser = null;
+      _currentUser = null;
+      _role = AppRole.guest;
+      notifyListeners();
+      return;
+    }
+
+    _firebaseUser = savedUser;
+    _currentUser = null;
+
+    try {
+      final DocumentSnapshot userDoc = await _db
+          .collection('users')
+          .doc(savedUser.uid)
+          .get();
+      if (userDoc.exists) {
+        final Map<String, dynamic> data =
+            userDoc.data() as Map<String, dynamic>;
+        _currentUser = AppUser.fromMap(userDoc.id, data);
+        _role = data['isAdmin'] == true ? AppRole.admin : AppRole.customer;
+      } else {
+        _role = AppRole.customer;
+      }
+    } catch (_) {
+      _role = AppRole.customer;
+    }
+
+    notifyListeners();
+  }
 
   /// Check Firebase Auth state for persisting login sessions
   Future<void> checkAuthState() async {
@@ -46,19 +85,13 @@ class AuthProvider extends ChangeNotifier {
     required String password,
   }) async {
     try {
-      // If already signed in (from loginAdmin attempt), just set customer role
-      if (_firebaseUser != null && _firebaseUser!.email == email.trim().toLowerCase()) {
-        _role = AppRole.customer;
-        notifyListeners();
-        return true;
-      }
-
       final UserCredential credential = await _auth.signInWithEmailAndPassword(
         email: email.trim(),
         password: password.trim(),
       );
       _firebaseUser = credential.user;
       _role = AppRole.customer;
+      await _fetchCurrentUser();
       notifyListeners();
       return true;
     } on FirebaseAuthException {
@@ -81,11 +114,14 @@ class AuthProvider extends ChangeNotifier {
       _firebaseUser = credential.user;
 
       // Check if user has admin role in Firestore
-      final DocumentSnapshot userDoc =
-          await _db.collection('users').doc(credential.user!.uid).get();
+      final DocumentSnapshot userDoc = await _db
+          .collection('users')
+          .doc(credential.user!.uid)
+          .get();
 
       if (userDoc.exists && userDoc.get('isAdmin') == true) {
         _role = AppRole.admin;
+        await _fetchCurrentUser();
         notifyListeners();
         return true;
       } else {
@@ -103,19 +139,21 @@ class AuthProvider extends ChangeNotifier {
     required String email,
     required String password,
     String phone = '',
+    String address = '',
   }) async {
     try {
-      final UserCredential credential =
-          await _auth.createUserWithEmailAndPassword(
-        email: email.trim(),
-        password: password.trim(),
-      );
+      final UserCredential credential = await _auth
+          .createUserWithEmailAndPassword(
+            email: email.trim(),
+            password: password.trim(),
+          );
 
       // Save user profile to Firestore 'users' collection
       await _db.collection('users').doc(credential.user!.uid).set({
         'name': name.trim(),
         'email': email.trim().toLowerCase(),
         'phone': phone.trim(),
+        'address': address.trim(),
         'isBlocked': false,
         'isAdmin': false,
         'createdAt': FieldValue.serverTimestamp(),
@@ -123,10 +161,68 @@ class AuthProvider extends ChangeNotifier {
 
       _firebaseUser = credential.user;
       _role = AppRole.customer;
+      await _fetchCurrentUser();
       notifyListeners();
       return true;
     } on FirebaseAuthException {
       return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Fetch current user data from Firestore
+  Future<void> _fetchCurrentUser() async {
+    if (_firebaseUser == null) return;
+    try {
+      final DocumentSnapshot userDoc = await _db
+          .collection('users')
+          .doc(_firebaseUser!.uid)
+          .get();
+      if (userDoc.exists) {
+        _currentUser = AppUser.fromMap(
+          userDoc.id,
+          userDoc.data() as Map<String, dynamic>,
+        );
+      }
+    } catch (_) {
+      // Handle error silently
+    }
+  }
+
+  /// Fetch current user data from Firestore (public method)
+  Future<void> fetchCurrentUser() async {
+    await _fetchCurrentUser();
+    notifyListeners();
+  }
+
+  Future<bool> updateCurrentUserProfile({
+    required String name,
+    required String phone,
+    required String address,
+  }) async {
+    final User? user = _auth.currentUser;
+    if (user == null) return false;
+
+    try {
+      final Map<String, dynamic> updates = {
+        'name': name.trim(),
+        'phone': phone.trim(),
+        'address': address.trim(),
+      };
+
+      await _db.collection('users').doc(user.uid).update(updates);
+
+      _currentUser =
+          (_currentUser ??
+                  AppUser(id: user.uid, name: '', email: user.email ?? ''))
+              .copyWith(
+                name: name.trim(),
+                phone: phone.trim(),
+                address: address.trim(),
+              );
+      notifyListeners();
+      return true;
     } catch (_) {
       return false;
     }
@@ -141,6 +237,7 @@ class AuthProvider extends ChangeNotifier {
   Future<void> logout() async {
     await _auth.signOut();
     _firebaseUser = null;
+    _currentUser = null;
     _role = AppRole.guest;
     notifyListeners();
   }

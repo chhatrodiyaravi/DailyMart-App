@@ -24,6 +24,26 @@ class OrdersProvider extends ChangeNotifier {
       .where((order) => order.status != 'Cancelled')
       .fold<double>(0, (sum, order) => sum + order.amount);
 
+  /// Fetch orders by customer email from Firestore
+  Future<List<AdminOrder>> fetchUserOrders(String email) async {
+    try {
+      final QuerySnapshot snapshot = await _db
+          .collection('orders')
+          .where('customer', isEqualTo: email)
+          .orderBy('createdAt', descending: true)
+          .get();
+
+      return snapshot.docs
+          .map(
+            (doc) =>
+                AdminOrder.fromMap(doc.id, doc.data() as Map<String, dynamic>),
+          )
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
   /// Fetch all orders from Firestore
   Future<void> fetchOrders() async {
     final QuerySnapshot snapshot = await _db
@@ -32,8 +52,10 @@ class OrdersProvider extends ChangeNotifier {
         .get();
 
     _orders = snapshot.docs
-        .map((doc) =>
-            AdminOrder.fromMap(doc.id, doc.data() as Map<String, dynamic>))
+        .map(
+          (doc) =>
+              AdminOrder.fromMap(doc.id, doc.data() as Map<String, dynamic>),
+        )
         .toList();
     notifyListeners();
   }
@@ -56,12 +78,14 @@ class OrdersProvider extends ChangeNotifier {
     required double amount,
   }) async {
     final List<Map<String, dynamic>> linesMaps = products
-        .map((product) => OrderLine(
-              productId: product.id,
-              productName: product.name,
-              quantity: quantities[product.id] ?? 0,
-              unitPrice: product.price,
-            ))
+        .map(
+          (product) => OrderLine(
+            productId: product.id,
+            productName: product.name,
+            quantity: quantities[product.id] ?? 0,
+            unitPrice: product.price,
+          ),
+        )
         .where((line) => line.quantity > 0)
         .map((line) => line.toMap())
         .toList();
@@ -76,10 +100,7 @@ class OrdersProvider extends ChangeNotifier {
 
     final DocumentReference ref = await _db.collection('orders').add(data);
 
-    _orders.insert(
-      0,
-      AdminOrder.fromMap(ref.id, data),
-    );
+    _orders.insert(0, AdminOrder.fromMap(ref.id, data));
     notifyListeners();
   }
 }

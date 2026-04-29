@@ -1,14 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
-import '../data/dummy_data.dart';
 import '../models/product.dart';
 
 class CatalogProduct {
-  const CatalogProduct({
-    required this.product,
-    required this.inStock,
-  });
+  const CatalogProduct({required this.product, required this.inStock});
 
   final Product product;
   final bool inStock;
@@ -24,7 +19,6 @@ class CatalogProduct {
 class ProductCatalogProvider extends ChangeNotifier {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   List<CatalogProduct> _items = [];
-  bool _loaded = false;
 
   List<CatalogProduct> get allProducts =>
       List<CatalogProduct>.unmodifiable(_items);
@@ -37,39 +31,25 @@ class ProductCatalogProvider extends ChangeNotifier {
   int get totalCount => _items.length;
   int get outOfStockCount => _items.where((item) => !item.inStock).length;
 
-  /// Fetch all products from Firestore. If Firestore is empty, seed from DummyData.
+  /// Fetch all products from Firestore.
   Future<void> fetchProducts() async {
-    final QuerySnapshot snapshot = await _db.collection('products').get();
+    try {
+      final QuerySnapshot snapshot = await _db.collection('products').get();
 
-    if (snapshot.docs.isEmpty && !_loaded) {
-      // Firestore is empty — seed it with DummyData so the app isn't blank
-      for (final Product p in DummyData.products) {
-        final Map<String, dynamic> data = {
-          ...p.toMap(),
-          'inStock': true,
-        };
-        await _db.collection('products').add(data);
-      }
-      // Re-fetch after seeding
-      final QuerySnapshot seeded = await _db.collection('products').get();
-      _items = seeded.docs.map((doc) {
-        final Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-        return CatalogProduct(
-          product: Product.fromMap(doc.id, data),
-          inStock: data['inStock'] ?? true,
-        );
-      }).toList();
-    } else {
-      _items = snapshot.docs.map((doc) {
-        final Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-        return CatalogProduct(
-          product: Product.fromMap(doc.id, data),
-          inStock: data['inStock'] ?? true,
-        );
-      }).toList();
+      _items = snapshot.docs
+          .map((doc) {
+            final Map<String, dynamic> data =
+                doc.data() as Map<String, dynamic>;
+            return CatalogProduct(
+              product: Product.fromMap(doc.id, data),
+              inStock: data['inStock'] ?? true,
+            );
+          })
+          .toList(growable: false);
+    } catch (error) {
+      debugPrint('Failed to load products from Firestore: $error');
     }
 
-    _loaded = true;
     notifyListeners();
   }
 
@@ -90,10 +70,15 @@ class ProductCatalogProvider extends ChangeNotifier {
   }
 
   /// Toggle stock status in Firestore
-  Future<void> toggleStock(String productId, bool inStock, {String actor = 'system'}) async {
-    await _db.collection('products').doc(productId).update({'inStock': inStock});
-    final int index =
-        _items.indexWhere((item) => item.product.id == productId);
+  Future<void> toggleStock(
+    String productId,
+    bool inStock, {
+    String actor = 'system',
+  }) async {
+    await _db.collection('products').doc(productId).update({
+      'inStock': inStock,
+    });
+    final int index = _items.indexWhere((item) => item.product.id == productId);
     if (index != -1) {
       _items[index] = _items[index].copyWith(inStock: inStock);
       notifyListeners();
@@ -142,10 +127,9 @@ class ProductCatalogProvider extends ChangeNotifier {
 
     final DocumentReference ref = await _db.collection('products').add(data);
 
-    _items.add(CatalogProduct(
-      product: Product.fromMap(ref.id, data),
-      inStock: true,
-    ));
+    _items.add(
+      CatalogProduct(product: Product.fromMap(ref.id, data), inStock: true),
+    );
     notifyListeners();
   }
 
@@ -184,8 +168,7 @@ class ProductCatalogProvider extends ChangeNotifier {
 
     await _db.collection('products').doc(productId).update(data);
 
-    final int index =
-        _items.indexWhere((item) => item.product.id == productId);
+    final int index = _items.indexWhere((item) => item.product.id == productId);
     if (index != -1) {
       _items[index] = _items[index].copyWith(
         product: Product.fromMap(productId, {

@@ -114,6 +114,7 @@ class ProductCatalogProvider extends ChangeNotifier {
     required double price,
     required double rating,
     required String unit,
+    int deliveryMinutes = 10,
     String? imageUrl,
     String? description,
     String actor = 'system',
@@ -134,7 +135,7 @@ class ProductCatalogProvider extends ChangeNotifier {
       'description': (description ?? '').trim().isEmpty
           ? 'Fresh grocery item added from admin panel.'
           : description!.trim(),
-      'deliveryMinutes': 10,
+      'deliveryMinutes': deliveryMinutes,
       'section': section,
       'inStock': true,
     };
@@ -158,6 +159,7 @@ class ProductCatalogProvider extends ChangeNotifier {
     required String unit,
     required String imageUrl,
     required String description,
+    required int deliveryMinutes,
     String actor = 'system',
   }) async {
     final String normalizedCategory = categoryId.trim().toLowerCase();
@@ -176,6 +178,7 @@ class ProductCatalogProvider extends ChangeNotifier {
       'description': description.trim().isEmpty
           ? 'Fresh grocery item added from admin panel.'
           : description.trim(),
+      'deliveryMinutes': deliveryMinutes,
       'section': section,
     };
 

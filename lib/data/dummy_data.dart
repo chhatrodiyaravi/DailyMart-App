@@ -1,47 +1,6 @@
-import 'package:flutter/material.dart';
-
-import '../models/category_model.dart';
 import '../models/product.dart';
 
 class DummyData {
-  static const List<GroceryCategory> categories = [
-    GroceryCategory(
-      id: 'fruits',
-      name: 'Fruits',
-      icon: Icons.apple,
-      color: Color(0xFFFFF4D6),
-    ),
-    GroceryCategory(
-      id: 'dairy',
-      name: 'Dairy',
-      icon: Icons.local_drink,
-      color: Color(0xFFDFF4FF),
-    ),
-    GroceryCategory(
-      id: 'snacks',
-      name: 'Snacks',
-      icon: Icons.cookie,
-      color: Color(0xFFFFE6E1),
-    ),
-    GroceryCategory(
-      id: 'bakery',
-      name: 'Bakery',
-      icon: Icons.breakfast_dining,
-      color: Color(0xFFFFF0DF),
-    ),
-    GroceryCategory(
-      id: 'beverages',
-      name: 'Beverages',
-      icon: Icons.local_cafe,
-      color: Color(0xFFE4F7EA),
-    ),
-    GroceryCategory(
-      id: 'essentials',
-      name: 'Essentials',
-      icon: Icons.home,
-      color: Color(0xFFEDEBFF),
-    ),
-  ];
 
   static const List<Product> products = [
     Product(

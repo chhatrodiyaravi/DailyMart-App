@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../models/category_model.dart';
+import '../providers/category_provider.dart';
 import '../providers/product_catalog_provider.dart';
 import '../screens/product_list_screen.dart';
 import '../widgets/cart_button.dart';
@@ -17,14 +19,16 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final ProductCatalogProvider catalog = context
         .watch<ProductCatalogProvider>();
+    final List<GroceryCategory> categories =
+        context.watch<CategoryProvider>().categories;
+
+    // Build sections dynamically from database categories
     final Set<String> availableSections = catalog.availableProducts
         .map((product) => product.section)
         .toSet();
-    final List<String> sections = <String>[
-      'Fruits',
-      'Dairy',
-      'Snacks',
-    ].where(availableSections.contains).toList(growable: false);
+    final List<GroceryCategory> activeSections = categories
+        .where((cat) => availableSections.contains(cat.name))
+        .toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -58,25 +62,24 @@ class HomeScreen extends StatelessWidget {
             const BannerSlider(),
             const SectionHeader(title: 'Shop by Category'),
             const CategoryList(),
-            for (final section in sections) ...[
+            for (final cat in activeSections) ...[
               SectionHeader(
-                title: section,
+                title: cat.name,
                 onSeeAll: () {
-                  final String categoryId = section.isNotEmpty
-                      ? section.toLowerCase()
-                      : 'fruits';
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (_) => ProductListScreen(
-                        title: section,
-                        categoryId: categoryId,
+                        title: cat.name,
+                        categoryId: cat.name.toLowerCase(),
                       ),
                     ),
                   );
                 },
               ),
-              ProductGrid(products: catalog.productsForSection(section)),
+              ProductGrid(
+                products: catalog.productsForSection(cat.name),
+              ),
             ],
             const SizedBox(height: 18),
           ],

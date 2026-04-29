@@ -26,7 +26,7 @@ class CategoryItem extends StatelessWidget {
         margin: margin,
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
         decoration: BoxDecoration(
-          color: category.color,
+          color: category.colorValue,
           borderRadius: BorderRadius.circular(14),
         ),
         child: Column(
@@ -35,7 +35,7 @@ class CategoryItem extends StatelessWidget {
             CircleAvatar(
               radius: 20,
               backgroundColor: Colors.white,
-              child: Icon(category.icon, color: Colors.green.shade700),
+              child: Icon(category.iconData, color: Colors.green.shade700),
             ),
             const SizedBox(height: 8),
             Text(

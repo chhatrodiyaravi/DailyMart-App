@@ -23,6 +23,7 @@ class ProductDetailScreen extends StatelessWidget {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
               children: [
+                // ── Product Image ──
                 ClipRRect(
                   borderRadius: BorderRadius.circular(18),
                   child: AspectRatio(
@@ -43,6 +44,8 @@ class ProductDetailScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
+
+                // ── Product Name ──
                 Text(
                   product.name,
                   style: const TextStyle(
@@ -51,6 +54,8 @@ class ProductDetailScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
+
+                // ── Price and Unit ──
                 Row(
                   children: [
                     Text(
@@ -71,6 +76,8 @@ class ProductDetailScreen extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 8),
+
+                // ── Rating ──
                 Row(
                   children: [
                     const Icon(
@@ -88,7 +95,32 @@ class ProductDetailScreen extends StatelessWidget {
                     ),
                   ],
                 ),
+                const SizedBox(height: 12),
+
+                // ── Category & Section chips ──
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    _detailChip(
+                      icon: Icons.category_outlined,
+                      label: product.categoryId.isNotEmpty
+                          ? '${product.categoryId[0].toUpperCase()}${product.categoryId.substring(1)}'
+                          : 'Uncategorized',
+                      color: Colors.blue,
+                    ),
+                    _detailChip(
+                      icon: Icons.view_module_outlined,
+                      label: product.section.isNotEmpty
+                          ? product.section
+                          : 'General',
+                      color: Colors.purple,
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 14),
+
+                // ── Delivery time ──
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
@@ -111,6 +143,8 @@ class ProductDetailScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 18),
+
+                // ── Description ──
                 const Text(
                   'Description',
                   style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
@@ -164,6 +198,36 @@ class ProductDetailScreen extends StatelessWidget {
                   ),
                 ],
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _detailChip({
+    required IconData icon,
+    required String label,
+    required MaterialColor color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.shade200),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: color.shade700),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: color.shade800,
             ),
           ),
         ],

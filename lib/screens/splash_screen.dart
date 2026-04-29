@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../providers/auth_provider.dart';
 import '../providers/product_catalog_provider.dart';
+import 'admin/admin_shell_screen.dart';
+import 'main_shell_screen.dart';
 import 'login_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -35,18 +38,27 @@ class _SplashScreenState extends State<SplashScreen>
   Future<void> _loadAndNavigate() async {
     // Preload products from Firestore during splash — with timeout so app doesn't hang
     try {
-      await context
-          .read<ProductCatalogProvider>()
-          .fetchProducts()
-          .timeout(const Duration(seconds: 10));
+      await context.read<ProductCatalogProvider>().fetchProducts().timeout(
+        const Duration(seconds: 10),
+      );
     } catch (_) {
       // If Firestore is unreachable, continue anyway — app will work in offline mode
     }
+
+    final AuthProvider authProvider = context.read<AuthProvider>();
+    await authProvider.restoreSession();
+
     await Future.delayed(const Duration(seconds: 1));
     if (!mounted) return;
+    final Widget nextScreen = authProvider.isAdmin
+        ? const AdminShellScreen()
+        : authProvider.isCustomer
+        ? const MainShellScreen()
+        : const LoginScreen();
+
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      MaterialPageRoute(builder: (_) => nextScreen),
     );
   }
 

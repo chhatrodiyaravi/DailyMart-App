@@ -1,65 +1,173 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
-class ManageAddressesScreen extends StatelessWidget {
+import '../../providers/auth_provider.dart';
+
+class ManageAddressesScreen extends StatefulWidget {
   const ManageAddressesScreen({super.key});
+
+  @override
+  State<ManageAddressesScreen> createState() => _ManageAddressesScreenState();
+}
+
+class _ManageAddressesScreenState extends State<ManageAddressesScreen> {
+  Future<void> _editAddress() async {
+    final AuthProvider authProvider = context.read<AuthProvider>();
+    final TextEditingController addressController = TextEditingController(
+      text: authProvider.currentUser?.address ?? '',
+    );
+    final GlobalKey<FormState> formKey = GlobalKey<FormState>();
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
+          ),
+          child: Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 44,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Edit Address',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: addressController,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                      labelText: 'Delivery Address',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.location_on_outlined),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Enter your address';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: FilledButton(
+                      onPressed: () async {
+                        if (!(formKey.currentState?.validate() ?? false))
+                          return;
+
+                        final bool saved = await authProvider
+                            .updateCurrentUserProfile(
+                              name: authProvider.currentUser?.name ?? '',
+                              phone: authProvider.currentUser?.phone ?? '',
+                              address: addressController.text,
+                            );
+
+                        if (!sheetContext.mounted) return;
+
+                        if (saved) {
+                          Navigator.pop(sheetContext);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Address updated successfully'),
+                            ),
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Could not update address'),
+                            ),
+                          );
+                        }
+                      },
+                      child: const Text('Save Address'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    addressController.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Manage Addresses')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _AddressCard(
-            title: 'Home',
-            address: '21 Green Park, MG Road, Bengaluru, Karnataka 560001',
-          ),
-          _AddressCard(
-            title: 'Work',
-            address: '9 Tech Plaza, Whitefield, Bengaluru, Karnataka 560066',
-          ),
-          const SizedBox(height: 10),
-          OutlinedButton.icon(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Add address feature coming soon.'),
+      body: Consumer<AuthProvider>(
+        builder: (context, authProvider, _) {
+          final address = authProvider.currentUser?.address;
+
+          return ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  side: BorderSide(color: Colors.grey.shade200),
                 ),
-              );
-            },
-            icon: const Icon(Icons.add_location_alt_outlined),
-            label: const Text('Add New Address'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AddressCard extends StatelessWidget {
-  const _AddressCard({required this.title, required this.address});
-
-  final String title;
-  final String address;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: ListTile(
-        leading: Icon(Icons.location_on_outlined, color: Colors.green.shade700),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-        subtitle: Text(address),
-        trailing: IconButton(
-          onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Edit $title address is not available yet.'),
+                child: ListTile(
+                  leading: Icon(
+                    Icons.location_on_outlined,
+                    color: Colors.green.shade700,
+                  ),
+                  title: const Text(
+                    'Primary Address',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  subtitle: Text(
+                    (address != null && address.isNotEmpty)
+                        ? address
+                        : 'No address saved yet',
+                  ),
+                  trailing: TextButton.icon(
+                    onPressed: _editAddress,
+                    icon: const Icon(Icons.edit_outlined),
+                    label: const Text('Edit'),
+                  ),
+                ),
               ),
-            );
-          },
-          icon: const Icon(Icons.edit_outlined),
-        ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: _editAddress,
+                icon: const Icon(Icons.add_location_alt_outlined),
+                label: Text(
+                  (address != null && address.isNotEmpty)
+                      ? 'Change Address'
+                      : 'Add Address',
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

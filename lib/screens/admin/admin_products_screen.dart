@@ -442,7 +442,7 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
                                     actor: context
                                         .read<AuthProvider>()
                                         .currentEmail,
-                              );
+                                  );
                             },
                           ),
                         ],
@@ -461,32 +461,8 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
                       IconButton(
                         tooltip: 'Delete product',
                         onPressed: () {
-                          showDialog<void>(
-                            context: context,
-                            builder: (ctx) => AlertDialog(
-                              title: const Text('Delete Product'),
-                              content: Text(
-                                'Are you sure you want to delete "${product.name}"?',
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(ctx),
-                                  child: const Text('Cancel'),
-                                ),
-                                FilledButton(
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor: Colors.red,
-                                  ),
-                                  onPressed: () {
-                                    context
-                                        .read<ProductCatalogProvider>()
-                                        .removeProduct(product.id);
-                                    Navigator.pop(ctx);
-                                  },
-                                  child: const Text('Delete'),
-                                ),
-                              ],
-                            ),
+                          context.read<ProductCatalogProvider>().removeProduct(
+                            product.id,
                           );
                         },
                         icon: Icon(

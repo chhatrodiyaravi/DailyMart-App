@@ -7,6 +7,7 @@ import '../models/app_user.dart';
 import '../providers/auth_provider.dart';
 import '../providers/orders_provider.dart';
 import 'login_screen.dart';
+import 'order_detail_screen.dart';
 import 'settings/help_support_screen.dart';
 import 'settings/manage_addresses_screen.dart';
 import 'settings/notifications_settings_screen.dart';
@@ -14,6 +15,23 @@ import 'settings/privacy_policy_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  Color _statusColor(String status) {
+    switch (status) {
+      case 'Placed':
+        return Colors.orange;
+      case 'Packed':
+        return Colors.blue;
+      case 'Out for Delivery':
+        return Colors.purple;
+      case 'Delivered':
+        return Colors.green;
+      case 'Cancelled':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();

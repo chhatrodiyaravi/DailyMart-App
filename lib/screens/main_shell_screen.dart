@@ -8,14 +8,16 @@ import 'home_screen.dart';
 import 'profile_screen.dart';
 
 class MainShellScreen extends StatefulWidget {
-  const MainShellScreen({super.key});
+  const MainShellScreen({super.key, this.initialTab = 0});
+
+  final int initialTab;
 
   @override
   State<MainShellScreen> createState() => _MainShellScreenState();
 }
 
 class _MainShellScreenState extends State<MainShellScreen> {
-  int _selectedIndex = 0;
+  late int _selectedIndex;
 
   late final List<Widget> _pages = const [
     HomeScreen(),
@@ -23,6 +25,12 @@ class _MainShellScreenState extends State<MainShellScreen> {
     CartScreen(isTabPage: true),
     ProfileScreen(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedIndex = widget.initialTab;
+  }
 
   @override
   Widget build(BuildContext context) {

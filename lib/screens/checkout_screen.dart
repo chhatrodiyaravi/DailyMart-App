@@ -2,13 +2,37 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/product.dart';
+import '../models/address_model.dart';
 import '../providers/auth_provider.dart';
 import '../providers/cart_provider.dart';
 import '../providers/orders_provider.dart';
+import '../providers/address_provider.dart';
 import 'order_success_screen.dart';
+import 'payment_processing_screen.dart';
+import 'settings/manage_addresses_screen.dart';
+import 'settings/add_address_screen.dart';
 
-class CheckoutScreen extends StatelessWidget {
+class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});
+
+  @override
+  State<CheckoutScreen> createState() => _CheckoutScreenState();
+}
+
+class _CheckoutScreenState extends State<CheckoutScreen> {
+  String _selectedPayment = 'UPI';
+  bool _isPlacingOrder = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final auth = context.read<AuthProvider>();
+      if (auth.isCustomer) {
+        context.read<AddressProvider>().fetchAddresses(auth.currentUid);
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -21,9 +45,11 @@ class CheckoutScreen extends StatelessWidget {
         ? 'Saved Address'
         : 'Home';
     final double itemTotal = cart.totalPrice;
-    final double deliveryFee = 25;
-    final double handlingFee = 8;
+    const double deliveryFee = 25;
+    const double handlingFee = 8;
     final double grandTotal = itemTotal + deliveryFee + handlingFee;
+
+    final Address? selectedAddress = addressProvider.selectedAddress;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Checkout')),
@@ -56,9 +82,26 @@ class CheckoutScreen extends StatelessWidget {
             icon: Icons.payments_outlined,
             child: Column(
               children: [
-                const _PaymentTile(label: 'UPI', selected: true),
-                const _PaymentTile(label: 'Credit / Debit Card'),
-                const _PaymentTile(label: 'Cash on Delivery'),
+                _PaymentTile(
+                  label: 'UPI',
+                  icon: Icons.account_balance,
+                  selected: _selectedPayment == 'UPI',
+                  onTap: () => setState(() => _selectedPayment = 'UPI'),
+                ),
+                _PaymentTile(
+                  label: 'Credit / Debit Card',
+                  icon: Icons.credit_card,
+                  selected: _selectedPayment == 'Credit / Debit Card',
+                  onTap: () =>
+                      setState(() => _selectedPayment = 'Credit / Debit Card'),
+                ),
+                _PaymentTile(
+                  label: 'Cash on Delivery',
+                  icon: Icons.money,
+                  selected: _selectedPayment == 'Cash on Delivery',
+                  onTap: () =>
+                      setState(() => _selectedPayment = 'Cash on Delivery'),
+                ),
               ],
             ),
           ),
@@ -73,6 +116,25 @@ class CheckoutScreen extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(vertical: 4),
                     child: Row(
                       children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(6),
+                          child: SizedBox(
+                            width: 36,
+                            height: 36,
+                            child: Image.network(
+                              product.imageUrl,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Container(
+                                color: Colors.green.shade100,
+                                alignment: Alignment.center,
+                                child: const Icon(Icons.local_grocery_store,
+                                    size: 18, color: Colors.green),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
                         Expanded(child: Text(product.name)),
                         Text('x${cart.quantityFor(product.id)}'),
                         const SizedBox(width: 10),
@@ -84,8 +146,8 @@ class CheckoutScreen extends StatelessWidget {
                   ),
                 const Divider(height: 24),
                 _PriceRow(label: 'Item Total', value: itemTotal),
-                _PriceRow(label: 'Delivery Fee', value: deliveryFee),
-                _PriceRow(label: 'Handling Fee', value: handlingFee),
+                const _PriceRow(label: 'Delivery Fee', value: deliveryFee),
+                const _PriceRow(label: 'Handling Fee', value: handlingFee),
                 const SizedBox(height: 6),
                 _PriceRow(
                   label: 'Grand Total',
@@ -107,28 +169,154 @@ class CheckoutScreen extends StatelessWidget {
               style: FilledButton.styleFrom(
                 backgroundColor: Colors.green.shade700,
               ),
-              onPressed: cart.totalItems == 0
+              onPressed: (cart.totalItems == 0 ||
+                      _isPlacingOrder ||
+                      selectedAddress == null)
                   ? null
                   : () async {
-                      await context.read<OrdersProvider>().placeOrder(
-                        customer: auth.currentEmail,
-                        products: cart.cartProducts,
-                        quantities: cart.items,
-                        amount: grandTotal,
-                      );
-                      cart.clear();
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const OrderSuccessScreen(),
-                        ),
-                      );
+                      final addressStr =
+                          '${selectedAddress.fullAddress}, ${selectedAddress.city} - ${selectedAddress.pincode}';
+
+                      if (_selectedPayment == 'Cash on Delivery') {
+                        setState(() => _isPlacingOrder = true);
+                        try {
+                          final String orderId =
+                              await context.read<OrdersProvider>().placeOrder(
+                                    userId: auth.currentUid,
+                                    customer: auth.currentEmail,
+                                    products: cart.cartProducts,
+                                    quantities: cart.items,
+                                    amount: grandTotal,
+                                    paymentMethod: 'Cash on Delivery',
+                                    paymentStatus: 'Pending',
+                                    deliveryAddress: addressStr,
+                                  );
+                          cart.clear();
+                          if (!context.mounted) return;
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => OrderSuccessScreen(
+                                orderId: orderId,
+                                paymentMethod: 'Cash on Delivery',
+                              ),
+                            ),
+                          );
+                        } catch (e) {
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Failed to place order: $e'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        } finally {
+                          if (mounted) setState(() => _isPlacingOrder = false);
+                        }
+                      } else {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => PaymentProcessingScreen(
+                              paymentMethod: _selectedPayment,
+                              totalAmount: grandTotal,
+                              deliveryAddress: addressStr,
+                            ),
+                          ),
+                        );
+                      }
                     },
-              child: Text('Place Order  Rs ${grandTotal.toStringAsFixed(0)}'),
+              child: _isPlacingOrder
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Text(selectedAddress == null
+                      ? 'Add Address to Continue'
+                      : 'Place Order  •  Rs ${grandTotal.toStringAsFixed(0)}'),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  void _showAddressPicker(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return Consumer<AddressProvider>(
+          builder: (context, provider, _) {
+            return Container(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Select Delivery Address',
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+                  ),
+                  const SizedBox(height: 16),
+                  Flexible(
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: provider.addresses.length,
+                      itemBuilder: (context, index) {
+                        final address = provider.addresses[index];
+                        return ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(
+                            address.label == 'Home'
+                                ? Icons.home_outlined
+                                : Icons.location_on_outlined,
+                            color: Colors.green.shade700,
+                          ),
+                          title: Text(address.label,
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w700)),
+                          subtitle: Text(address.fullAddress),
+                          trailing: provider.selectedAddress?.id == address.id
+                              ? Icon(Icons.check_circle,
+                                  color: Colors.green.shade700)
+                              : null,
+                          onTap: () {
+                            provider.selectAddress(address);
+                            Navigator.pop(context);
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const ManageAddressesScreen()),
+                        );
+                      },
+                      icon: const Icon(Icons.settings),
+                      label: const Text('Manage Addresses'),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }
@@ -210,21 +398,56 @@ class _PriceRow extends StatelessWidget {
 }
 
 class _PaymentTile extends StatelessWidget {
-  const _PaymentTile({required this.label, this.selected = false});
+  const _PaymentTile({
+    required this.label,
+    required this.icon,
+    this.selected = false,
+    required this.onTap,
+  });
 
   final String label;
+  final IconData icon;
   final bool selected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      dense: true,
-      leading: Icon(
-        selected ? Icons.radio_button_checked : Icons.radio_button_off,
-        color: selected ? Colors.green.shade700 : Colors.grey,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        margin: const EdgeInsets.only(bottom: 4),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          color: selected ? Colors.green.shade50 : Colors.transparent,
+          border: Border.all(
+            color: selected ? Colors.green.shade300 : Colors.transparent,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              selected ? Icons.radio_button_checked : Icons.radio_button_off,
+              color: selected ? Colors.green.shade700 : Colors.grey,
+              size: 22,
+            ),
+            const SizedBox(width: 10),
+            Icon(icon, size: 20, color: Colors.grey.shade700),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                ),
+              ),
+            ),
+            if (selected)
+              Icon(Icons.check_circle, size: 18, color: Colors.green.shade700),
+          ],
+        ),
       ),
-      title: Text(label),
     );
   }
 }

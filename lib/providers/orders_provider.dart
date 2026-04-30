@@ -60,20 +60,6 @@ class OrdersProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Fetch orders for a specific user
-  Future<List<AdminOrder>> fetchUserOrders(String userId) async {
-    final QuerySnapshot snapshot = await _db
-        .collection('orders')
-        .where('userId', isEqualTo: userId)
-        .orderBy('createdAt', descending: true)
-        .get();
-
-    return snapshot.docs
-        .map((doc) =>
-            AdminOrder.fromMap(doc.id, doc.data() as Map<String, dynamic>))
-        .toList();
-  }
-
   /// Update order status in Firestore
   Future<void> updateStatus(String orderId, String status) async {
     await _db.collection('orders').doc(orderId).update({'status': status});

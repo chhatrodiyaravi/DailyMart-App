@@ -78,6 +78,7 @@ class OrdersProvider extends ChangeNotifier {
     required double amount,
     required String paymentMethod,
     required String paymentStatus,
+    required String deliveryAddress,
   }) async {
     final List<Map<String, dynamic>> linesMaps = products
         .map((product) => OrderLine(
@@ -99,6 +100,7 @@ class OrdersProvider extends ChangeNotifier {
       'status': 'Placed',
       'paymentMethod': paymentMethod,
       'paymentStatus': paymentStatus,
+      'deliveryAddress': deliveryAddress,
       'createdAt': DateTime.now().toIso8601String(),
       'lines': linesMaps,
     };

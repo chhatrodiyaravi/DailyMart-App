@@ -2,11 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/product.dart';
+import '../models/address_model.dart';
 import '../providers/auth_provider.dart';
 import '../providers/cart_provider.dart';
 import '../providers/orders_provider.dart';
+import '../providers/address_provider.dart';
 import 'order_success_screen.dart';
 import 'payment_processing_screen.dart';
+import 'settings/manage_addresses_screen.dart';
+import 'settings/add_address_screen.dart';
 
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});
@@ -20,13 +24,27 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   bool _isPlacingOrder = false;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final auth = context.read<AuthProvider>();
+      if (auth.isCustomer) {
+        context.read<AddressProvider>().fetchAddresses(auth.currentUid);
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final CartProvider cart = context.watch<CartProvider>();
     final AuthProvider auth = context.watch<AuthProvider>();
+    final addressProvider = context.watch<AddressProvider>();
     final double itemTotal = cart.totalPrice;
     const double deliveryFee = 25;
     const double handlingFee = 8;
     final double grandTotal = itemTotal + deliveryFee + handlingFee;
+
+    final Address? selectedAddress = addressProvider.selectedAddress;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Checkout')),
@@ -36,22 +54,47 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           _SectionCard(
             title: 'Delivery Address',
             icon: Icons.location_on_outlined,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Home',
-                  style: TextStyle(fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '221B Green Street, Bangalore',
-                  style: TextStyle(color: Colors.grey.shade700),
-                ),
-                const SizedBox(height: 8),
-                TextButton(onPressed: () {}, child: const Text('Change')),
-              ],
-            ),
+            child: selectedAddress == null
+                ? Column(
+                    children: [
+                      const Text('No address selected'),
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const AddAddressScreen()),
+                          );
+                        },
+                        icon: const Icon(Icons.add),
+                        label: const Text('Add Address'),
+                      ),
+                    ],
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        selectedAddress.label,
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        selectedAddress.fullAddress,
+                        style: TextStyle(color: Colors.grey.shade700),
+                      ),
+                      Text(
+                        '${selectedAddress.city}, ${selectedAddress.pincode}',
+                        style: TextStyle(color: Colors.grey.shade700),
+                      ),
+                      const SizedBox(height: 8),
+                      TextButton(
+                        onPressed: () => _showAddressPicker(context),
+                        child: const Text('Change Address'),
+                      ),
+                    ],
+                  ),
           ),
           const SizedBox(height: 12),
           _SectionCard(
@@ -146,57 +189,63 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               style: FilledButton.styleFrom(
                 backgroundColor: Colors.green.shade700,
               ),
-              onPressed:
-                  (cart.totalItems == 0 || _isPlacingOrder) ? null : () async {
-                    if (_selectedPayment == 'Cash on Delivery') {
-                      // Place order directly for COD
-                      setState(() => _isPlacingOrder = true);
-                      try {
-                        final String orderId =
-                            await context.read<OrdersProvider>().placeOrder(
-                                  userId: auth.currentUid,
-                                  customer: auth.currentEmail,
-                                  products: cart.cartProducts,
-                                  quantities: cart.items,
-                                  amount: grandTotal,
-                                  paymentMethod: 'Cash on Delivery',
-                                  paymentStatus: 'Pending',
-                                );
-                        cart.clear();
-                        if (!context.mounted) return;
-                        Navigator.pushReplacement(
+              onPressed: (cart.totalItems == 0 ||
+                      _isPlacingOrder ||
+                      selectedAddress == null)
+                  ? null
+                  : () async {
+                      final addressStr =
+                          '${selectedAddress.fullAddress}, ${selectedAddress.city} - ${selectedAddress.pincode}';
+
+                      if (_selectedPayment == 'Cash on Delivery') {
+                        setState(() => _isPlacingOrder = true);
+                        try {
+                          final String orderId =
+                              await context.read<OrdersProvider>().placeOrder(
+                                    userId: auth.currentUid,
+                                    customer: auth.currentEmail,
+                                    products: cart.cartProducts,
+                                    quantities: cart.items,
+                                    amount: grandTotal,
+                                    paymentMethod: 'Cash on Delivery',
+                                    paymentStatus: 'Pending',
+                                    deliveryAddress: addressStr,
+                                  );
+                          cart.clear();
+                          if (!context.mounted) return;
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => OrderSuccessScreen(
+                                orderId: orderId,
+                                paymentMethod: 'Cash on Delivery',
+                              ),
+                            ),
+                          );
+                        } catch (e) {
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Failed to place order: $e'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        } finally {
+                          if (mounted) setState(() => _isPlacingOrder = false);
+                        }
+                      } else {
+                        Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => OrderSuccessScreen(
-                              orderId: orderId,
-                              paymentMethod: 'Cash on Delivery',
+                            builder: (_) => PaymentProcessingScreen(
+                              paymentMethod: _selectedPayment,
+                              totalAmount: grandTotal,
+                              deliveryAddress: addressStr,
                             ),
                           ),
                         );
-                      } catch (e) {
-                        if (!context.mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Failed to place order: $e'),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                      } finally {
-                        if (mounted) setState(() => _isPlacingOrder = false);
                       }
-                    } else {
-                      // Navigate to payment processing for online payments
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => PaymentProcessingScreen(
-                            paymentMethod: _selectedPayment,
-                            totalAmount: grandTotal,
-                          ),
-                        ),
-                      );
-                    }
-                  },
+                    },
               child: _isPlacingOrder
                   ? const SizedBox(
                       width: 22,
@@ -206,12 +255,88 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         color: Colors.white,
                       ),
                     )
-                  : Text(
-                      'Place Order  •  Rs ${grandTotal.toStringAsFixed(0)}'),
+                  : Text(selectedAddress == null
+                      ? 'Add Address to Continue'
+                      : 'Place Order  •  Rs ${grandTotal.toStringAsFixed(0)}'),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  void _showAddressPicker(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return Consumer<AddressProvider>(
+          builder: (context, provider, _) {
+            return Container(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Select Delivery Address',
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+                  ),
+                  const SizedBox(height: 16),
+                  Flexible(
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: provider.addresses.length,
+                      itemBuilder: (context, index) {
+                        final address = provider.addresses[index];
+                        return ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(
+                            address.label == 'Home'
+                                ? Icons.home_outlined
+                                : Icons.location_on_outlined,
+                            color: Colors.green.shade700,
+                          ),
+                          title: Text(address.label,
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w700)),
+                          subtitle: Text(address.fullAddress),
+                          trailing: provider.selectedAddress?.id == address.id
+                              ? Icon(Icons.check_circle,
+                                  color: Colors.green.shade700)
+                              : null,
+                          onTap: () {
+                            provider.selectAddress(address);
+                            Navigator.pop(context);
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const ManageAddressesScreen()),
+                        );
+                      },
+                      icon: const Icon(Icons.settings),
+                      label: const Text('Manage Addresses'),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }
@@ -315,9 +440,7 @@ class _PaymentTile extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 4),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
-          color: selected
-              ? Colors.green.shade50
-              : Colors.transparent,
+          color: selected ? Colors.green.shade50 : Colors.transparent,
           border: Border.all(
             color: selected ? Colors.green.shade300 : Colors.transparent,
           ),

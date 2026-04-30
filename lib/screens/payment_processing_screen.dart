@@ -11,10 +11,12 @@ class PaymentProcessingScreen extends StatefulWidget {
     super.key,
     required this.paymentMethod,
     required this.totalAmount,
+    required this.deliveryAddress,
   });
 
   final String paymentMethod;
   final double totalAmount;
+  final String deliveryAddress;
 
   @override
   State<PaymentProcessingScreen> createState() =>
@@ -84,6 +86,7 @@ class _PaymentProcessingScreenState extends State<PaymentProcessingScreen>
             amount: widget.totalAmount,
             paymentMethod: widget.paymentMethod,
             paymentStatus: 'Paid',
+            deliveryAddress: widget.deliveryAddress,
           );
       cart.clear();
       if (!mounted) return;

@@ -99,6 +99,9 @@ class OrderDetailScreen extends StatelessWidget {
               _InfoRow(icon: Icons.calendar_today, label: 'Order Date',
                   value: '${order.createdAt.day}/${order.createdAt.month}/${order.createdAt.year}  ${order.createdAt.hour}:${order.createdAt.minute.toString().padLeft(2, '0')}'),
               const Divider(height: 20),
+              _InfoRow(icon: Icons.location_on_outlined, label: 'Delivery Address',
+                  value: order.deliveryAddress),
+              const Divider(height: 20),
               _InfoRow(icon: Icons.payments_outlined, label: 'Payment Method',
                   value: order.paymentMethod),
               const Divider(height: 20),
@@ -230,14 +233,22 @@ class _InfoRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Icon(icon, size: 18, color: Colors.grey.shade600),
         const SizedBox(width: 8),
-        Text(label, style: TextStyle(color: Colors.grey.shade600)),
-        const Spacer(),
-        Text(value,
-            style: TextStyle(
-                fontWeight: FontWeight.w600, color: valueColor ?? Colors.black87)),
+        Expanded(
+          flex: 3,
+          child: Text(label, style: TextStyle(color: Colors.grey.shade600)),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          flex: 5,
+          child: Text(value,
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                  fontWeight: FontWeight.w600, color: valueColor ?? Colors.black87)),
+        ),
       ],
     );
   }

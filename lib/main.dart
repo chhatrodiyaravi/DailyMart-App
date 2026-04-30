@@ -7,6 +7,7 @@ import 'providers/category_provider.dart';
 import 'providers/orders_provider.dart';
 import 'providers/product_catalog_provider.dart';
 import 'providers/users_provider.dart';
+import 'providers/address_provider.dart';
 import 'screens/splash_screen.dart';
 
 void main() async {
@@ -27,6 +28,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ProductCatalogProvider()),
         ChangeNotifierProvider(create: (_) => OrdersProvider()),
         ChangeNotifierProvider(create: (_) => UsersProvider()),
+        ChangeNotifierProvider(create: (_) => AddressProvider()),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,

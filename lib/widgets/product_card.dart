@@ -7,9 +7,10 @@ import '../screens/product_detail_screen.dart';
 import 'quantity_selector.dart';
 
 class ProductCard extends StatelessWidget {
-  const ProductCard({super.key, required this.product});
+  const ProductCard({super.key, required this.product, this.showAddButton = true});
 
   final Product product;
+  final bool showAddButton;
 
   @override
   Widget build(BuildContext context) {
@@ -120,33 +121,35 @@ class ProductCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 6),
-                  if (quantity == 0)
-                    SizedBox(
-                      height: 34,
-                      child: OutlinedButton(
-                        style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: Colors.green.shade700),
-                          foregroundColor: Colors.green.shade700,
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
-                          minimumSize: const Size(54, 34),
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          visualDensity: VisualDensity.compact,
+                  if (showAddButton) ...[
+                    const SizedBox(width: 6),
+                    if (quantity == 0)
+                      SizedBox(
+                        height: 34,
+                        child: OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(color: Colors.green.shade700),
+                            foregroundColor: Colors.green.shade700,
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            minimumSize: const Size(54, 34),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          onPressed: () => cart.addProduct(product),
+                          child: const Text(
+                            'ADD',
+                            style: TextStyle(fontWeight: FontWeight.w700),
+                          ),
                         ),
-                        onPressed: () => cart.addProduct(product),
-                        child: const Text(
-                          'ADD',
-                          style: TextStyle(fontWeight: FontWeight.w700),
-                        ),
+                      )
+                    else
+                      QuantitySelector(
+                        compact: true,
+                        quantity: quantity,
+                        onIncrease: () => cart.increase(product),
+                        onDecrease: () => cart.decrease(product),
                       ),
-                    )
-                  else
-                    QuantitySelector(
-                      compact: true,
-                      quantity: quantity,
-                      onIncrease: () => cart.increase(product),
-                      onDecrease: () => cart.decrease(product),
-                    ),
+                  ],
                 ],
               ),
             ],

@@ -9,11 +9,13 @@ class ProductGrid extends StatelessWidget {
     required this.products,
     this.shrinkWrap = true,
     this.physics = const NeverScrollableScrollPhysics(),
+    this.showAddButton = true,
   });
 
   final List<Product> products;
   final bool shrinkWrap;
   final ScrollPhysics physics;
+  final bool showAddButton;
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +31,10 @@ class ProductGrid extends StatelessWidget {
         mainAxisSpacing: 8,
       ),
       itemBuilder: (context, index) {
-        return ProductCard(product: products[index]);
+        return ProductCard(
+          product: products[index],
+          showAddButton: showAddButton,
+        );
       },
     );
   }

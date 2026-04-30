@@ -354,6 +354,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                         _detailRow(Icons.person_outline, 'Customer', order.customer),
                         _detailRow(Icons.calendar_today, 'Date',
                             '${order.createdAt.day}/${order.createdAt.month}/${order.createdAt.year}  ${order.createdAt.hour}:${order.createdAt.minute.toString().padLeft(2, '0')}'),
+                        _detailRow(Icons.location_on_outlined, 'Address', order.deliveryAddress),
                         _detailRow(Icons.payments_outlined, 'Payment',
                             '${order.paymentMethod} (${order.paymentStatus})'),
                         _detailRow(Icons.attach_money, 'Amount',

@@ -49,6 +49,7 @@ class AdminOrder {
     required this.status,
     required this.paymentMethod,
     required this.paymentStatus,
+    required this.deliveryAddress,
     required this.createdAt,
     required this.lines,
   });
@@ -60,6 +61,7 @@ class AdminOrder {
   final String status;
   final String paymentMethod;
   final String paymentStatus;
+  final String deliveryAddress;
   final DateTime createdAt;
   final List<OrderLine> lines;
 
@@ -73,6 +75,7 @@ class AdminOrder {
     String? status,
     String? paymentMethod,
     String? paymentStatus,
+    String? deliveryAddress,
     DateTime? createdAt,
     List<OrderLine>? lines,
   }) {
@@ -84,6 +87,7 @@ class AdminOrder {
       status: status ?? this.status,
       paymentMethod: paymentMethod ?? this.paymentMethod,
       paymentStatus: paymentStatus ?? this.paymentStatus,
+      deliveryAddress: deliveryAddress ?? this.deliveryAddress,
       createdAt: createdAt ?? this.createdAt,
       lines: lines ?? this.lines,
     );
@@ -97,6 +101,7 @@ class AdminOrder {
       'status': status,
       'paymentMethod': paymentMethod,
       'paymentStatus': paymentStatus,
+      'deliveryAddress': deliveryAddress,
       'createdAt': createdAt.toIso8601String(),
       'lines': lines.map((line) => line.toMap()).toList(),
     };
@@ -111,6 +116,7 @@ class AdminOrder {
       status: map['status'] ?? 'Placed',
       paymentMethod: map['paymentMethod'] ?? 'Cash on Delivery',
       paymentStatus: map['paymentStatus'] ?? 'Pending',
+      deliveryAddress: map['deliveryAddress'] ?? '',
       createdAt: DateTime.tryParse(map['createdAt'] ?? '') ?? DateTime.now(),
       lines: (map['lines'] as List<dynamic>?)
               ?.map((line) => OrderLine.fromMap(line as Map<String, dynamic>))

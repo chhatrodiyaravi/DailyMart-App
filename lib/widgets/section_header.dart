@@ -21,7 +21,8 @@ class SectionHeader extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          TextButton(onPressed: onSeeAll, child: const Text('See all')),
+          if (onSeeAll != null)
+            TextButton(onPressed: onSeeAll, child: const Text('See all')),
         ],
       ),
     );

@@ -22,7 +22,7 @@ class OrdersProvider extends ChangeNotifier {
 
   double get revenueToday => _orders
       .where((order) => order.status != 'Cancelled')
-      .fold<double>(0, (sum, order) => sum + order.amount);
+      .fold<double>(0, (s, order) => s + order.amount);
 
   /// Fetch orders by customer email from Firestore
   Future<List<AdminOrder>> fetchUserOrders(String email) async {
@@ -60,6 +60,20 @@ class OrdersProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Fetch orders for a specific user
+  Future<List<AdminOrder>> fetchUserOrders(String userId) async {
+    final QuerySnapshot snapshot = await _db
+        .collection('orders')
+        .where('userId', isEqualTo: userId)
+        .orderBy('createdAt', descending: true)
+        .get();
+
+    return snapshot.docs
+        .map((doc) =>
+            AdminOrder.fromMap(doc.id, doc.data() as Map<String, dynamic>))
+        .toList();
+  }
+
   /// Update order status in Firestore
   Future<void> updateStatus(String orderId, String status) async {
     await _db.collection('orders').doc(orderId).update({'status': status});
@@ -70,12 +84,23 @@ class OrdersProvider extends ChangeNotifier {
     }
   }
 
+  /// Delete an order from Firestore (admin)
+  Future<void> deleteOrder(String orderId) async {
+    await _db.collection('orders').doc(orderId).delete();
+    _orders.removeWhere((order) => order.id == orderId);
+    notifyListeners();
+  }
+
   /// Place a new order and save to Firestore
-  Future<void> placeOrder({
+  Future<String> placeOrder({
+    required String userId,
     required String customer,
     required List<Product> products,
     required Map<String, int> quantities,
     required double amount,
+    required String paymentMethod,
+    required String paymentStatus,
+    required String deliveryAddress,
   }) async {
     final List<Map<String, dynamic>> linesMaps = products
         .map(
@@ -91,9 +116,13 @@ class OrdersProvider extends ChangeNotifier {
         .toList();
 
     final Map<String, dynamic> data = {
+      'userId': userId,
       'customer': customer,
       'amount': amount,
       'status': 'Placed',
+      'paymentMethod': paymentMethod,
+      'paymentStatus': paymentStatus,
+      'deliveryAddress': deliveryAddress,
       'createdAt': DateTime.now().toIso8601String(),
       'lines': linesMaps,
     };
@@ -102,5 +131,7 @@ class OrdersProvider extends ChangeNotifier {
 
     _orders.insert(0, AdminOrder.fromMap(ref.id, data));
     notifyListeners();
+
+    return ref.id;
   }
 }

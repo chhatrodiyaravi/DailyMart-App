@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/admin_order.dart';
 import '../models/app_user.dart';
 import '../providers/auth_provider.dart';
 import '../providers/orders_provider.dart';
 import 'login_screen.dart';
-import 'order_detail_screen.dart';
 import 'settings/help_support_screen.dart';
 import 'settings/manage_addresses_screen.dart';
 import 'settings/notifications_settings_screen.dart';
@@ -15,23 +13,6 @@ import 'settings/privacy_policy_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
-
-  Color _statusColor(String status) {
-    switch (status) {
-      case 'Placed':
-        return Colors.orange;
-      case 'Packed':
-        return Colors.blue;
-      case 'Out for Delivery':
-        return Colors.purple;
-      case 'Delivered':
-        return Colors.green;
-      case 'Cancelled':
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
-  }
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -166,8 +147,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         height: 48,
                         child: FilledButton(
                           onPressed: () async {
-                            if (!(formKey.currentState?.validate() ?? false))
+                            if (!(formKey.currentState?.validate() ?? false)) {
                               return;
+                            }
+
+                            final NavigatorState sheetNavigator = Navigator.of(
+                              sheetContext,
+                            );
+                            final ScaffoldMessengerState messenger =
+                                ScaffoldMessenger.of(context);
 
                             final bool saved = await context
                                 .read<AuthProvider>()
@@ -177,17 +165,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   address: addressController.text,
                                 );
 
-                            if (!sheetContext.mounted) return;
+                            if (!mounted || !sheetContext.mounted) return;
 
                             if (saved) {
-                              Navigator.pop(sheetContext);
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              sheetNavigator.pop();
+                              messenger.showSnackBar(
                                 const SnackBar(
                                   content: Text('Profile updated successfully'),
                                 ),
                               );
                             } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              messenger.showSnackBar(
                                 const SnackBar(
                                   content: Text('Could not update profile'),
                                 ),
@@ -353,7 +341,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     IconButton(
                       onPressed: () {
-                        _showEditProfileSheet(currentUser!);
+                        _showEditProfileSheet(currentUser);
                       },
                       icon: const Icon(Icons.edit),
                     ),
@@ -514,18 +502,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     backgroundColor: Colors.red.shade600,
                   ),
                   onPressed: () async {
-                    if (mounted) {
-                      await context.read<AuthProvider>().logout();
-                      if (mounted) {
-                        Navigator.pushAndRemoveUntil(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const LoginScreen(),
-                          ),
-                          (route) => false,
-                        );
-                      }
-                    }
+                    if (!mounted) return;
+
+                    final NavigatorState navigator = Navigator.of(context);
+                    await context.read<AuthProvider>().logout();
+
+                    if (!mounted) return;
+
+                    navigator.pushAndRemoveUntil(
+                      MaterialPageRoute(builder: (_) => const LoginScreen()),
+                      (route) => false,
+                    );
                   },
                   icon: const Icon(Icons.logout),
                   label: const Text('Logout'),

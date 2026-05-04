@@ -18,6 +18,7 @@ class CatalogProduct {
 
 class ProductCatalogProvider extends ChangeNotifier {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final FirebaseStorage _storage = FirebaseStorage.instance;
   List<CatalogProduct> _items = [];
 
   List<CatalogProduct> get allProducts =>
@@ -92,6 +93,39 @@ class ProductCatalogProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Upload a product image to Firebase Storage and return its download URL.
+  Future<String> uploadProductImage({
+    required Uint8List bytes,
+    required String fileName,
+  }) async {
+    try {
+      // Sanitize filename: remove spaces, special chars, keep only alphanumeric and dots
+      String cleanName = fileName.trim().isEmpty
+          ? 'product_${DateTime.now().millisecondsSinceEpoch}.jpg'
+          : fileName.trim();
+
+      // Replace spaces and problematic characters with underscores
+      cleanName = cleanName
+          .replaceAll(RegExp(r'[\s]'), '_') // spaces to underscores
+          .replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '') // keep only safe chars
+          .replaceAll(RegExp(r'_+'), '_'); // collapse multiple underscores
+
+      final String objectPath =
+          'products/${DateTime.now().millisecondsSinceEpoch}_$cleanName';
+
+      final Reference ref = _storage.ref().child(objectPath);
+      await ref.putData(
+        bytes,
+        SettableMetadata(contentType: 'image/jpeg'),
+      );
+      return ref.getDownloadURL();
+    } catch (e) {
+      throw Exception(
+        'Failed to upload product image. Ensure Firebase Storage is enabled and rules allow uploads. Error: $e',
+      );
+    }
+  }
+
   /// Add new product to Firestore
   Future<void> addProduct({
     required String name,
@@ -105,6 +139,9 @@ class ProductCatalogProvider extends ChangeNotifier {
     String actor = 'system',
   }) async {
     final String normalizedCategory = categoryId.trim().toLowerCase();
+    if (normalizedCategory.isEmpty) {
+      throw Exception('Category cannot be empty');
+    }
     final String section =
         '${normalizedCategory[0].toUpperCase()}${normalizedCategory.substring(1)}';
 
@@ -147,6 +184,9 @@ class ProductCatalogProvider extends ChangeNotifier {
     String actor = 'system',
   }) async {
     final String normalizedCategory = categoryId.trim().toLowerCase();
+    if (normalizedCategory.isEmpty) {
+      throw Exception('Category cannot be empty');
+    }
     final String section =
         '${normalizedCategory[0].toUpperCase()}${normalizedCategory.substring(1)}';
 

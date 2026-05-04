@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class OrderLine {
   const OrderLine({
     required this.productId,
@@ -29,13 +31,27 @@ class OrderLine {
   }
 
   factory OrderLine.fromMap(Map<String, dynamic> map) {
+    double toDouble(dynamic val) {
+      if (val == null) return 0.0;
+      if (val is num) return val.toDouble();
+      if (val is String) return double.tryParse(val) ?? 0.0;
+      return 0.0;
+    }
+
+    int toInt(dynamic val) {
+      if (val == null) return 0;
+      if (val is num) return val.toInt();
+      if (val is String) return int.tryParse(val) ?? 0;
+      return 0;
+    }
+
     return OrderLine(
-      productId: map['productId'] ?? '',
-      productName: map['productName'] ?? '',
-      quantity: map['quantity'] ?? 0,
-      unitPrice: (map['unitPrice'] ?? 0).toDouble(),
-      imageUrl: map['imageUrl'] ?? '',
-      unit: map['unit'] ?? '1 unit',
+      productId: map['productId']?.toString() ?? '',
+      productName: map['productName']?.toString() ?? '',
+      quantity: toInt(map['quantity']),
+      unitPrice: toDouble(map['unitPrice']),
+      imageUrl: map['imageUrl']?.toString() ?? '',
+      unit: map['unit']?.toString() ?? '1 unit',
     );
   }
 }
@@ -65,7 +81,7 @@ class AdminOrder {
   final DateTime createdAt;
   final List<OrderLine> lines;
 
-  int get itemCount => lines.fold<int>(0, (sum, line) => sum + line.quantity);
+  int get itemCount => lines.fold<int>(0, (total, line) => total + line.quantity);
 
   AdminOrder copyWith({
     String? id,
@@ -108,16 +124,31 @@ class AdminOrder {
   }
 
   factory AdminOrder.fromMap(String id, Map<String, dynamic> map) {
+    double toDouble(dynamic val) {
+      if (val == null) return 0.0;
+      if (val is num) return val.toDouble();
+      if (val is String) return double.tryParse(val) ?? 0.0;
+      return 0.0;
+    }
+
+    final dynamic createdAtValue = map['createdAt'];
+    final DateTime createdAt = createdAtValue is Timestamp
+        ? createdAtValue.toDate()
+        : createdAtValue is DateTime
+            ? createdAtValue
+            : DateTime.tryParse(createdAtValue?.toString() ?? '') ??
+                DateTime.now();
+
     return AdminOrder(
       id: id,
-      userId: map['userId'] ?? '',
-      customer: map['customer'] ?? '',
-      amount: (map['amount'] ?? 0).toDouble(),
-      status: map['status'] ?? 'Placed',
-      paymentMethod: map['paymentMethod'] ?? 'Cash on Delivery',
-      paymentStatus: map['paymentStatus'] ?? 'Pending',
-      deliveryAddress: map['deliveryAddress'] ?? '',
-      createdAt: DateTime.tryParse(map['createdAt'] ?? '') ?? DateTime.now(),
+      userId: map['userId']?.toString() ?? '',
+      customer: map['customer']?.toString() ?? '',
+      amount: toDouble(map['amount']),
+      status: map['status']?.toString() ?? 'Placed',
+      paymentMethod: map['paymentMethod']?.toString() ?? 'Cash on Delivery',
+      paymentStatus: map['paymentStatus']?.toString() ?? 'Pending',
+      deliveryAddress: map['deliveryAddress']?.toString() ?? '',
+      createdAt: createdAt,
       lines: (map['lines'] as List<dynamic>?)
               ?.map((line) => OrderLine.fromMap(line as Map<String, dynamic>))
               .toList() ??

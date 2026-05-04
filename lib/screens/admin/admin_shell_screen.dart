@@ -33,10 +33,21 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<CategoryProvider>().fetchCategories();
-      context.read<OrdersProvider>().fetchOrders();
-      context.read<UsersProvider>().fetchUsers();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      try {
+        await Future.wait([
+          context.read<CategoryProvider>().fetchCategories(),
+          context.read<OrdersProvider>().fetchOrders(),
+          context.read<UsersProvider>().fetchUsers(),
+        ]);
+      } catch (e) {
+        debugPrint('Error initializing admin shell: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Warning: Some data failed to load: $e')),
+          );
+        }
+      }
     });
   }
 

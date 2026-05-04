@@ -62,11 +62,19 @@ class AuthProvider extends ChangeNotifier {
     _firebaseUser = _auth.currentUser;
     if (_firebaseUser != null) {
       try {
-        final DocumentSnapshot userDoc =
-            await _db.collection('users').doc(_firebaseUser!.uid).get();
+        final DocumentSnapshot userDoc = await _db
+            .collection('users')
+            .doc(_firebaseUser!.uid)
+            .get()
+            .timeout(const Duration(seconds: 5));
 
-        if (userDoc.exists && userDoc.get('isAdmin') == true) {
-          _role = AppRole.admin;
+        if (userDoc.exists) {
+          final data = userDoc.data() as Map<String, dynamic>?;
+          if (data != null && data['isAdmin'] == true) {
+            _role = AppRole.admin;
+          } else {
+            _role = AppRole.customer;
+          }
         } else {
           _role = AppRole.customer;
         }
@@ -128,6 +136,8 @@ class AuthProvider extends ChangeNotifier {
         // Not an admin — but keep the session alive so loginCustomer can use it
         return false;
       }
+      // Not an admin — but keep the session alive so loginCustomer can use it
+      return false;
     } catch (_) {
       return false;
     }

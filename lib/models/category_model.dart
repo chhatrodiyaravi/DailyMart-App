@@ -18,12 +18,16 @@ class GroceryCategory {
 
   /// Runtime helper — convert stored hex to Color
   Color get colorValue {
-    final String hex = colorHex.replaceFirst('#', '');
-    if (hex.length == 6) {
-      return Color(int.parse('FF$hex', radix: 16));
-    }
-    if (hex.length == 8) {
-      return Color(int.parse(hex, radix: 16));
+    try {
+      final String hex = colorHex.replaceFirst('#', '').trim();
+      if (hex.length == 6) {
+        return Color(int.parse('FF$hex', radix: 16));
+      }
+      if (hex.length == 8) {
+        return Color(int.parse(hex, radix: 16));
+      }
+    } catch (_) {
+      // Fallback to default green if color string is invalid
     }
     return const Color(0xFFE8F5E9);
   }
@@ -39,9 +43,9 @@ class GroceryCategory {
   factory GroceryCategory.fromMap(String id, Map<String, dynamic> map) {
     return GroceryCategory(
       id: id,
-      name: map['name'] ?? '',
-      iconName: map['iconName'] ?? 'category',
-      colorHex: map['colorHex'] ?? '#E8F5E9',
+      name: map['name']?.toString() ?? '',
+      iconName: map['iconName']?.toString() ?? 'category',
+      colorHex: map['colorHex']?.toString() ?? '#E8F5E9',
     );
   }
 

@@ -1,3 +1,6 @@
+import 'dart:typed_data';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -28,9 +31,6 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
     final TextEditingController unitController = TextEditingController(
       text: existing?.product.unit ?? '',
     );
-    final TextEditingController imageUrlController = TextEditingController(
-      text: existing?.product.imageUrl ?? '',
-    );
     final TextEditingController descriptionController = TextEditingController(
       text: existing?.product.description ?? '',
     );
@@ -40,11 +40,18 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
           ? '10'
           : existing.product.deliveryMinutes.toString(),
     );
+    final TextEditingController imageUrlController = TextEditingController(
+      text: existing?.product.imageUrl ?? '',
+    );
 
     // Category dropdown state
     final List<GroceryCategory> categories =
         context.read<CategoryProvider>().categories;
     String? selectedCategoryId = existing?.product.categoryId;
+    Uint8List? selectedImageBytes;
+    String? selectedImageName;
+    String? previewImageUrl = existing?.product.imageUrl;
+    bool isSaving = false;
 
     // If editing, verify selected category still exists
     if (selectedCategoryId != null &&
@@ -56,6 +63,7 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
 
     showDialog<void>(
       context: context,
+      barrierDismissible: false,
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
@@ -74,7 +82,7 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
-                  initialValue: selectedCategoryId,
+                  value: selectedCategoryId,
                   decoration: const InputDecoration(
                     labelText: 'Category',
                     prefixIcon: Icon(Icons.category_outlined),
@@ -137,12 +145,133 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
+                InkWell(
+                  onTap: () async {
+                    final FilePickerResult? result =
+                        await FilePicker.platform.pickFiles(
+                      type: FileType.image,
+                      withData: true,
+                    );
+
+                    final PlatformFile? file = result?.files.single;
+                    if (file == null || file.bytes == null) {
+                      return;
+                    }
+
+                    setDialogState(() {
+                      selectedImageBytes = file.bytes;
+                      selectedImageName = file.name;
+                      previewImageUrl = null;
+                    });
+                  },
+                  borderRadius: BorderRadius.circular(14),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: Colors.grey.shade300),
+                      color: Colors.grey.shade50,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 64,
+                              height: 64,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12),
+                                color: Colors.green.shade50,
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: selectedImageBytes != null
+                                    ? Image.memory(
+                                        selectedImageBytes!,
+                                        fit: BoxFit.cover,
+                                      )
+                                    : (previewImageUrl != null &&
+                                            previewImageUrl!.isNotEmpty)
+                                        ? Image.network(
+                                            previewImageUrl!,
+                                            fit: BoxFit.cover,
+                                            errorBuilder:
+                                                (context, error, stackTrace) =>
+                                                    const Icon(
+                                              Icons.image_outlined,
+                                              color: Colors.green,
+                                            ),
+                                          )
+                                        : const Icon(
+                                            Icons.add_photo_alternate_outlined,
+                                            color: Colors.green,
+                                          ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    selectedImageName ??
+                                        (isEdit
+                                            ? 'Tap to replace product image'
+                                            : 'Tap to choose product image'),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Choose an image from your device and upload it to Firebase Storage.',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey.shade700,
+                                      height: 1.3,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          selectedImageBytes == null &&
+                                  (previewImageUrl == null || previewImageUrl!.isEmpty)
+                              ? 'No image selected'
+                              : 'Image ready',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Center(child: Text('— OR —', style: TextStyle(fontSize: 12, color: Colors.grey))),
+                const SizedBox(height: 8),
                 TextField(
                   controller: imageUrlController,
                   decoration: const InputDecoration(
-                    labelText: 'Image URL',
-                    prefixIcon: Icon(Icons.image_outlined),
+                    labelText: 'Direct Image URL (Optional)',
+                    hintText: 'https://example.com/image.jpg',
+                    prefixIcon: Icon(Icons.link),
+                    helperText: 'Paste a link to an image from the web.',
                   ),
+                  onChanged: (val) {
+                    setDialogState(() {
+                      if (val.trim().isNotEmpty) {
+                        previewImageUrl = val.trim();
+                        selectedImageBytes = null;
+                      }
+                    });
+                  },
                 ),
                 const SizedBox(height: 8),
                 TextField(
@@ -159,19 +288,33 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () {
+              onPressed: isSaving ? null : () {
                 Navigator.pop(context);
               },
               child: const Text('Cancel'),
             ),
-            FilledButton(
-              onPressed: () {
+            isSaving
+                ? const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  )
+                : FilledButton(
+                    onPressed: () async {
+                final ScaffoldMessengerState messenger =
+                    ScaffoldMessenger.of(context);
+                final NavigatorState navigator = Navigator.of(context);
+                final ProductCatalogProvider catalogProvider =
+                    context.read<ProductCatalogProvider>();
+                final AuthProvider authProvider = context.read<AuthProvider>();
                 final String name = nameController.text.trim();
                 final String category = selectedCategoryId ?? '';
                 final double? price = double.tryParse(priceController.text);
                 final double? rating = double.tryParse(ratingController.text);
                 final String unit = unitController.text.trim();
-                final String imageUrl = imageUrlController.text.trim();
                 final String description = descriptionController.text.trim();
                 final int? deliveryMins =
                     int.tryParse(deliveryMinutesController.text);
@@ -181,7 +324,7 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
                     price == null ||
                     rating == null ||
                     unit.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  messenger.showSnackBar(
                     const SnackBar(
                       content: Text('Please fill all required fields.'),
                     ),
@@ -190,7 +333,7 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
                 }
 
                 if (rating < 0 || rating > 5) {
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  messenger.showSnackBar(
                     const SnackBar(
                       content: Text('Rating must be between 0 and 5.'),
                     ),
@@ -198,33 +341,101 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
                   return;
                 }
 
-                if (isEdit) {
-                  context.read<ProductCatalogProvider>().updateProduct(
-                    productId: existing.product.id,
-                    name: name,
-                    categoryId: category,
-                    price: price,
-                    rating: rating,
-                    unit: unit,
-                    imageUrl: imageUrl,
-                    description: description,
-                    deliveryMinutes: deliveryMins ?? 10,
-                    actor: context.read<AuthProvider>().currentEmail,
-                  );
-                } else {
-                  context.read<ProductCatalogProvider>().addProduct(
-                    name: name,
-                    categoryId: category,
-                    price: price,
-                    rating: rating,
-                    unit: unit,
-                    imageUrl: imageUrl,
-                    description: description,
-                    deliveryMinutes: deliveryMins ?? 10,
-                    actor: context.read<AuthProvider>().currentEmail,
-                  );
+                if (!mounted) return;
+                setDialogState(() {
+                  isSaving = true;
+                });
+
+                String finalImageUrl = imageUrlController.text.trim();
+                
+                // If URL is empty and we have picked bytes, try to upload
+                if (finalImageUrl.isEmpty && selectedImageBytes != null) {
+                  try {
+                    finalImageUrl = await catalogProvider.uploadProductImage(
+                      bytes: selectedImageBytes!,
+                      fileName: selectedImageName ?? '$name.jpg',
+                    );
+                  } catch (e) {
+                    if (!mounted) return;
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: Text(
+                            'Image upload failed: $e. Using default placeholder.'),
+                        backgroundColor: Colors.orange.shade800,
+                        duration: const Duration(seconds: 5),
+                      ),
+                    );
+                    finalImageUrl = ''; // Will fall back to default below
+                  }
                 }
-                Navigator.pop(context);
+
+                if (finalImageUrl.isEmpty) {
+                  finalImageUrl = existing?.product.imageUrl ??
+                      'https://images.unsplash.com/photo-1542838132-92c53300491e?w=600';
+                }
+
+                try {
+                  if (isEdit) {
+                    await catalogProvider.updateProduct(
+                      productId: existing.product.id,
+                      name: name,
+                      categoryId: category,
+                      price: price,
+                      rating: rating,
+                      unit: unit,
+                      imageUrl: finalImageUrl,
+                      description: description,
+                      deliveryMinutes: deliveryMins ?? 10,
+                      actor: authProvider.currentEmail,
+                    );
+                  } else {
+                    await catalogProvider.addProduct(
+                      name: name,
+                      categoryId: category,
+                      price: price,
+                      rating: rating,
+                      unit: unit,
+                      imageUrl: finalImageUrl,
+                      description: description,
+                      deliveryMinutes: deliveryMins ?? 10,
+                      actor: authProvider.currentEmail,
+                    );
+                  }
+                } catch (e) {
+                  if (!mounted) return;
+                  setDialogState(() {
+                    isSaving = false;
+                  });
+                  showDialog(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Error'),
+                      content: Text(e.toString()),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: const Text('OK'),
+                        ),
+                      ],
+                    ),
+                  );
+                  return;
+                }
+
+                if (!mounted) return;
+                setDialogState(() {
+                  isSaving = false;
+                });
+
+                navigator.pop();
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text(isEdit
+                        ? 'Product updated successfully!'
+                        : 'Product added successfully!'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
               },
               child: Text(isEdit ? 'Save' : 'Add'),
             ),
@@ -460,10 +671,54 @@ class _AdminProductsScreenState extends State<AdminProductsScreen> {
                       ),
                       IconButton(
                         tooltip: 'Delete product',
-                        onPressed: () {
-                          context.read<ProductCatalogProvider>().removeProduct(
-                            product.id,
+                        onPressed: () async {
+                          final bool? confirm = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('Delete Product'),
+                              content: Text(
+                                  'Are you sure you want to delete "${product.name}"?'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx, false),
+                                  child: const Text('Cancel'),
+                                ),
+                                FilledButton(
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: Colors.red,
+                                  ),
+                                  onPressed: () => Navigator.pop(ctx, true),
+                                  child: const Text('Delete'),
+                                ),
+                              ],
+                            ),
                           );
+
+                          if (confirm == true && mounted) {
+                            try {
+                              await context
+                                  .read<ProductCatalogProvider>()
+                                  .removeProduct(product.id);
+
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Product deleted successfully!'),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
+                              }
+                            } catch (e) {
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Failed to delete product: $e'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            }
+                          }
                         },
                         icon: Icon(
                           Icons.delete_outline,

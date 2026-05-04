@@ -37,29 +37,35 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Future<void> _loadAndNavigate() async {
+    // Get providers BEFORE any async operations
+    final CategoryProvider categoryProvider =
+        context.read<CategoryProvider>();
+    final ProductCatalogProvider productProvider =
+        context.read<ProductCatalogProvider>();
+    final AuthProvider authProvider = context.read<AuthProvider>();
+
     // Preload categories & products from Firestore during splash
     try {
       await Future.wait([
-        context.read<CategoryProvider>().fetchCategories(),
-        context.read<ProductCatalogProvider>().fetchProducts(),
+        categoryProvider.fetchCategories(),
+        productProvider.fetchProducts(),
       ]).timeout(const Duration(seconds: 10));
     } catch (_) {
       // If Firestore is unreachable, continue anyway — app will work in offline mode
     }
 
-    // Check persist auth state
-    final AuthProvider auth = context.read<AuthProvider>();
-    await auth.checkAuthState();
+    // Check persisted auth state
+    await authProvider.checkAuthState();
 
     await Future.delayed(const Duration(seconds: 1));
     if (!mounted) return;
 
-    if (auth.isAdmin) {
+    if (authProvider.isAdmin) {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const AdminShellScreen()),
       );
-    } else if (auth.isCustomer) {
+    } else if (authProvider.isCustomer) {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const MainShellScreen()),

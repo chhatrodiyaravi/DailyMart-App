@@ -101,7 +101,7 @@ class OrdersProvider extends ChangeNotifier {
       'paymentMethod': paymentMethod,
       'paymentStatus': paymentStatus,
       'deliveryAddress': deliveryAddress,
-      'createdAt': DateTime.now().toIso8601String(),
+      'createdAt': Timestamp.now(),
       'lines': linesMaps,
     };
 

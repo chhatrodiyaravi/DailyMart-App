@@ -10,7 +10,6 @@ import '../providers/address_provider.dart';
 import 'order_success_screen.dart';
 import 'payment_processing_screen.dart';
 import 'settings/manage_addresses_screen.dart';
-import 'settings/add_address_screen.dart';
 
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});
@@ -38,13 +37,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Widget build(BuildContext context) {
     final CartProvider cart = context.watch<CartProvider>();
     final AuthProvider auth = context.watch<AuthProvider>();
-    final addressProvider = context.watch<AddressProvider>();
+    final AddressProvider addressProvider = context.watch<AddressProvider>();
+    final Address? selectedAddress = addressProvider.selectedAddress;
+    final bool hasProfileAddress = auth.currentUser?.address.isNotEmpty == true;
+    final String deliveryAddress = hasProfileAddress
+        ? auth.currentUser!.address
+        : (selectedAddress?.fullAddress ?? '221B Green Street, Bangalore');
+    final String deliveryLabel = hasProfileAddress
+        ? 'Saved Address'
+        : (selectedAddress?.label ?? 'Home');
     final double itemTotal = cart.totalPrice;
     const double deliveryFee = 25;
     const double handlingFee = 8;
     final double grandTotal = itemTotal + deliveryFee + handlingFee;
-
-    final Address? selectedAddress = addressProvider.selectedAddress;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Checkout')),
@@ -54,47 +59,25 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           _SectionCard(
             title: 'Delivery Address',
             icon: Icons.location_on_outlined,
-            child: selectedAddress == null
-                ? Column(
-                    children: [
-                      const Text('No address selected'),
-                      const SizedBox(height: 8),
-                      OutlinedButton.icon(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (_) => const AddAddressScreen()),
-                          );
-                        },
-                        icon: const Icon(Icons.add),
-                        label: const Text('Add Address'),
-                      ),
-                    ],
-                  )
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        selectedAddress.label,
-                        style: const TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        selectedAddress.fullAddress,
-                        style: TextStyle(color: Colors.grey.shade700),
-                      ),
-                      Text(
-                        '${selectedAddress.city}, ${selectedAddress.pincode}',
-                        style: TextStyle(color: Colors.grey.shade700),
-                      ),
-                      const SizedBox(height: 8),
-                      TextButton(
-                        onPressed: () => _showAddressPicker(context),
-                        child: const Text('Change Address'),
-                      ),
-                    ],
-                  ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  deliveryLabel,
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  deliveryAddress,
+                  style: TextStyle(color: Colors.grey.shade700),
+                ),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: () => _showAddressPicker(context),
+                  child: const Text('Change'),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 12),
           _SectionCard(
@@ -146,11 +129,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) =>
                                   Container(
-                                color: Colors.green.shade100,
-                                alignment: Alignment.center,
-                                child: const Icon(Icons.local_grocery_store,
-                                    size: 18, color: Colors.green),
-                              ),
+                                    color: Colors.green.shade100,
+                                    alignment: Alignment.center,
+                                    child: const Icon(
+                                      Icons.local_grocery_store,
+                                      size: 18,
+                                      color: Colors.green,
+                                    ),
+                                  ),
                             ),
                           ),
                         ),
@@ -189,7 +175,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               style: FilledButton.styleFrom(
                 backgroundColor: Colors.green.shade700,
               ),
-              onPressed: (cart.totalItems == 0 ||
+              onPressed:
+                  (cart.totalItems == 0 ||
                       _isPlacingOrder ||
                       selectedAddress == null)
                   ? null
@@ -200,17 +187,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       if (_selectedPayment == 'Cash on Delivery') {
                         setState(() => _isPlacingOrder = true);
                         try {
-                          final String orderId =
-                              await context.read<OrdersProvider>().placeOrder(
-                                    userId: auth.currentUid,
-                                    customer: auth.currentEmail,
-                                    products: cart.cartProducts,
-                                    quantities: cart.items,
-                                    amount: grandTotal,
-                                    paymentMethod: 'Cash on Delivery',
-                                    paymentStatus: 'Pending',
-                                    deliveryAddress: addressStr,
-                                  );
+                          final String orderId = await context
+                              .read<OrdersProvider>()
+                              .placeOrder(
+                                userId: auth.currentUid,
+                                customer: auth.currentEmail,
+                                products: cart.cartProducts,
+                                quantities: cart.items,
+                                amount: grandTotal,
+                                paymentMethod: 'Cash on Delivery',
+                                paymentStatus: 'Pending',
+                                deliveryAddress: addressStr,
+                              );
                           cart.clear();
                           if (!context.mounted) return;
                           Navigator.pushReplacement(
@@ -255,9 +243,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         color: Colors.white,
                       ),
                     )
-                  : Text(selectedAddress == null
-                      ? 'Add Address to Continue'
-                      : 'Place Order  •  Rs ${grandTotal.toStringAsFixed(0)}'),
+                  : Text(
+                      selectedAddress == null
+                          ? 'Add Address to Continue'
+                          : 'Place Order  •  Rs ${grandTotal.toStringAsFixed(0)}',
+                    ),
             ),
           ),
         ),
@@ -299,13 +289,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                 : Icons.location_on_outlined,
                             color: Colors.green.shade700,
                           ),
-                          title: Text(address.label,
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.w700)),
+                          title: Text(
+                            address.label,
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
                           subtitle: Text(address.fullAddress),
                           trailing: provider.selectedAddress?.id == address.id
-                              ? Icon(Icons.check_circle,
-                                  color: Colors.green.shade700)
+                              ? Icon(
+                                  Icons.check_circle,
+                                  color: Colors.green.shade700,
+                                )
                               : null,
                           onTap: () {
                             provider.selectAddress(address);
@@ -324,7 +317,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                              builder: (_) => const ManageAddressesScreen()),
+                            builder: (_) => const ManageAddressesScreen(),
+                          ),
                         );
                       },
                       icon: const Icon(Icons.settings),

@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../models/address_model.dart';
-import '../../providers/address_provider.dart';
+
 import '../../providers/auth_provider.dart';
-import 'add_address_screen.dart';
 
 class ManageAddressesScreen extends StatefulWidget {
   const ManageAddressesScreen({super.key});
@@ -13,178 +11,163 @@ class ManageAddressesScreen extends StatefulWidget {
 }
 
 class _ManageAddressesScreenState extends State<ManageAddressesScreen> {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final auth = context.read<AuthProvider>();
-      if (auth.isCustomer) {
-        context.read<AddressProvider>().fetchAddresses(auth.currentUid);
-      }
-    });
+  Future<void> _editAddress() async {
+    final AuthProvider authProvider = context.read<AuthProvider>();
+    final TextEditingController addressController = TextEditingController(
+      text: authProvider.currentUser?.address ?? '',
+    );
+    final GlobalKey<FormState> formKey = GlobalKey<FormState>();
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
+          ),
+          child: Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 44,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Edit Address',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: addressController,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                      labelText: 'Delivery Address',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.location_on_outlined),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Enter your address';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: FilledButton(
+                      onPressed: () async {
+                        if (!(formKey.currentState?.validate() ?? false))
+                          return;
+
+                        final bool saved = await authProvider
+                            .updateCurrentUserProfile(
+                              name: authProvider.currentUser?.name ?? '',
+                              phone: authProvider.currentUser?.phone ?? '',
+                              address: addressController.text,
+                            );
+
+                        if (!sheetContext.mounted) return;
+
+                        if (saved) {
+                          Navigator.pop(sheetContext);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Address updated successfully'),
+                            ),
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Could not update address'),
+                            ),
+                          );
+                        }
+                      },
+                      child: const Text('Save Address'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    addressController.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Manage Addresses')),
-      body: Consumer<AddressProvider>(
-        builder: (context, provider, _) {
-          if (provider.addresses.isEmpty) {
-            return _buildEmptyState(context);
-          }
-          return ListView.builder(
+      body: Consumer<AuthProvider>(
+        builder: (context, authProvider, _) {
+          final address = authProvider.currentUser?.address;
+
+          return ListView(
             padding: const EdgeInsets.all(16),
-            itemCount: provider.addresses.length,
-            itemBuilder: (context, index) {
-              final address = provider.addresses[index];
-              return _AddressCard(address: address);
-            },
+            children: [
+              Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  side: BorderSide(color: Colors.grey.shade200),
+                ),
+                child: ListTile(
+                  leading: Icon(
+                    Icons.location_on_outlined,
+                    color: Colors.green.shade700,
+                  ),
+                  title: const Text(
+                    'Primary Address',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  subtitle: Text(
+                    (address != null && address.isNotEmpty)
+                        ? address
+                        : 'No address saved yet',
+                  ),
+                  trailing: TextButton.icon(
+                    onPressed: _editAddress,
+                    icon: const Icon(Icons.edit_outlined),
+                    label: const Text('Edit'),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: _editAddress,
+                icon: const Icon(Icons.add_location_alt_outlined),
+                label: Text(
+                  (address != null && address.isNotEmpty)
+                      ? 'Change Address'
+                      : 'Add Address',
+                ),
+              ),
+            ],
           );
         },
-      ),
-      bottomNavigationBar: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: FilledButton.icon(
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const AddAddressScreen()),
-            );
-          },
-          style: FilledButton.styleFrom(
-            backgroundColor: Colors.green.shade700,
-            minimumSize: const Size.fromHeight(50),
-          ),
-          icon: const Icon(Icons.add_location_alt_outlined),
-          label: const Text('Add New Address'),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEmptyState(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.location_off_outlined, size: 64, color: Colors.grey.shade400),
-          const SizedBox(height: 16),
-          const Text(
-            'No addresses saved yet',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Add an address for a faster checkout experience.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey.shade600),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AddressCard extends StatelessWidget {
-  const _AddressCard({required this.address});
-
-  final Address address;
-
-  @override
-  Widget build(BuildContext context) {
-    final provider = context.read<AddressProvider>();
-    final auth = context.read<AuthProvider>();
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade200),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  address.label == 'Home'
-                      ? Icons.home_outlined
-                      : address.label == 'Work'
-                          ? Icons.work_outline
-                          : Icons.location_on_outlined,
-                  color: Colors.green.shade700,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  address.label,
-                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
-                ),
-                if (address.isDefault) ...[
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.green.shade50,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      'DEFAULT',
-                      style: TextStyle(
-                        color: Colors.green.shade700,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-                const Spacer(),
-                IconButton(
-                  onPressed: () {
-                    showDialog(
-                      context: context,
-                      builder: (ctx) => AlertDialog(
-                        title: const Text('Delete Address'),
-                        content: const Text('Are you sure you want to delete this address?'),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(ctx),
-                            child: const Text('Cancel'),
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              provider.deleteAddress(auth.currentUid, address.id);
-                              Navigator.pop(ctx);
-                            },
-                            child: const Text('Delete', style: TextStyle(color: Colors.red)),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              address.fullAddress,
-              style: TextStyle(color: Colors.grey.shade800),
-            ),
-            Text(
-              '${address.city}, ${address.state} - ${address.pincode}',
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Phone: ${address.phone}',
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-            ),
-          ],
-        ),
       ),
     );
   }

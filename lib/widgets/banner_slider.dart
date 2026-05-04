@@ -1,27 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
+import 'package:provider/provider.dart';
 
+import '../providers/promotions_provider.dart';
+
+/// Shows promotional banners that slide automatically on the home screen
+/// Each banner comes from Firebase and updates in real-time
 class BannerSlider extends StatelessWidget {
   const BannerSlider({super.key});
 
-  static const List<String> _banners = [
-    'https://images.unsplash.com/photo-1542838132-92c53300491e?w=1200',
-    'https://images.unsplash.com/photo-1543168256-418811576931?w=1200',
-    'https://images.unsplash.com/photo-1608797178974-15b35a64ede9?w=1200',
-  ];
-
   @override
   Widget build(BuildContext context) {
+    // Get active promotions from provider
+    final List<dynamic> banners = context
+        .watch<PromotionsProvider>()
+        .activePromotions;
+
+    // If no promotions, don't show anything
+    if (banners.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: CarouselSlider(
         options: CarouselOptions(
           height: 160,
-          autoPlay: true,
-          viewportFraction: 0.92,
-          enlargeCenterPage: true,
+          autoPlay: true, // Auto slide
+          viewportFraction: 0.92, // 92% of screen width
+          enlargeCenterPage: true, // Make middle one bigger
         ),
-        items: _banners.map((item) {
+        // Create a banner widget for each promotion
+        items: banners.map((promotion) {
           return Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
@@ -38,10 +48,12 @@ class BannerSlider extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
+                  // Background image
                   Image.network(
-                    item,
+                    promotion.imageUrl,
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) {
+                      // If image fails to load, show placeholder
                       return Container(
                         color: Colors.green.shade100,
                         alignment: Alignment.center,
@@ -53,6 +65,7 @@ class BannerSlider extends StatelessWidget {
                       );
                     },
                   ),
+                  // Dark gradient at bottom so text is readable
                   Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -65,16 +78,39 @@ class BannerSlider extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const Positioned(
+                  // Banner text at bottom
+                  Positioned(
                     left: 14,
                     bottom: 14,
-                    child: Text(
-                      'Mega Grocery Sale',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 16,
-                      ),
+                    right: 14,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Title
+                        Text(
+                          promotion.title,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 16,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        // Description with discount
+                        Text(
+                          'Save ${promotion.discount}% - ${promotion.description}',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.9),
+                            fontWeight: FontWeight.w500,
+                            fontSize: 12,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                     ),
                   ),
                 ],

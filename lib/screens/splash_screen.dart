@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/category_provider.dart';
 import '../providers/product_catalog_provider.dart';
-import '../providers/promotions_provider.dart';
 import 'admin/admin_shell_screen.dart';
 import 'main_shell_screen.dart';
 import 'login_screen.dart';
@@ -38,41 +37,39 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Future<void> _loadAndNavigate() async {
-    final AuthProvider authProvider = context.read<AuthProvider>();
-    final ProductCatalogProvider productProvider = context
-        .read<ProductCatalogProvider>();
-    final CategoryProvider categoryProvider = context.read<CategoryProvider>();
-    final PromotionsProvider promotionsProvider = context
-        .read<PromotionsProvider>();
-
-    // Restore the Firebase session first so Firestore reads and seed writes run with the right auth state.
-    await authProvider.restoreSession();
-
-    // Preload products, categories, and promotions from Firestore during splash — with timeout so app doesn't hang.
+    // Preload categories & products from Firestore during splash
     try {
       await Future.wait([
-        productProvider.fetchProducts().timeout(const Duration(seconds: 10)),
-        categoryProvider.fetchCategories().timeout(const Duration(seconds: 10)),
-        promotionsProvider.fetchPromotions().timeout(
-          const Duration(seconds: 10),
-        ),
-      ]);
+        context.read<CategoryProvider>().fetchCategories(),
+        context.read<ProductCatalogProvider>().fetchProducts(),
+      ]).timeout(const Duration(seconds: 10));
     } catch (_) {
       // If Firestore is unreachable, continue anyway — app will work in offline mode
     }
 
+    // Check persist auth state
+    final AuthProvider auth = context.read<AuthProvider>();
+    await auth.checkAuthState();
+
     await Future.delayed(const Duration(seconds: 1));
     if (!mounted) return;
-    final Widget nextScreen = authProvider.isAdmin
-        ? const AdminShellScreen()
-        : authProvider.isCustomer
-        ? const MainShellScreen()
-        : const LoginScreen();
 
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => nextScreen),
-    );
+    if (auth.isAdmin) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const AdminShellScreen()),
+      );
+    } else if (auth.isCustomer) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const MainShellScreen()),
+      );
+    } else {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+      );
+    }
   }
 
   @override

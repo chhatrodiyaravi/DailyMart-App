@@ -38,16 +38,13 @@ class ProductCatalogProvider extends ChangeNotifier {
     try {
       final QuerySnapshot snapshot = await _db.collection('products').get();
 
-      _items = snapshot.docs
-          .map((doc) {
-            final Map<String, dynamic> data =
-                doc.data() as Map<String, dynamic>;
-            return CatalogProduct(
-              product: Product.fromMap(doc.id, data),
-              inStock: data['inStock'] ?? true,
-            );
-          })
-          .toList();
+      _items = snapshot.docs.map((doc) {
+        final Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+        return CatalogProduct(
+          product: Product.fromMap(doc.id, data),
+          inStock: data['inStock'] ?? true,
+        );
+      }).toList();
     } catch (error) {
       debugPrint('Failed to load products from Firestore: $error');
     }
@@ -115,10 +112,7 @@ class ProductCatalogProvider extends ChangeNotifier {
           'products/${DateTime.now().millisecondsSinceEpoch}_$cleanName';
 
       final Reference ref = _storage.ref().child(objectPath);
-      await ref.putData(
-        bytes,
-        SettableMetadata(contentType: 'image/jpeg'),
-      );
+      await ref.putData(bytes, SettableMetadata(contentType: 'image/jpeg'));
       return ref.getDownloadURL();
     } catch (e) {
       throw Exception(

@@ -194,7 +194,9 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
       return true;
     } on FirebaseAuthException catch (e) {
-      debugPrint('registerCustomer FirebaseAuthException: ${e.code} - ${e.message}');
+      debugPrint(
+        'registerCustomer FirebaseAuthException: ${e.code} - ${e.message}',
+      );
       return false;
     } catch (e) {
       debugPrint('registerCustomer error: $e');

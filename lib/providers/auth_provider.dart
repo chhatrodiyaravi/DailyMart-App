@@ -129,7 +129,6 @@ class AuthProvider extends ChangeNotifier {
 
       if (userDoc.exists && userDoc.get('isAdmin') == true) {
         _role = AppRole.admin;
-        await _fetchCurrentUser();
         notifyListeners();
         return true;
       } else {

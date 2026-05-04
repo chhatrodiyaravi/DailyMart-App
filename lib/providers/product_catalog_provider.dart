@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+
+import '../data/dummy_data.dart';
 import '../models/product.dart';
 
 class CatalogProduct {

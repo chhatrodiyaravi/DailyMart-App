@@ -21,7 +21,7 @@ class CategoryProvider extends ChangeNotifier {
           final Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
           return GroceryCategory.fromMap(doc.id, data);
         })
-        .toList(growable: false);
+        .toList();
 
     notifyListeners();
   }

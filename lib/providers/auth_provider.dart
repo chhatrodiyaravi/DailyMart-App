@@ -93,6 +93,15 @@ class AuthProvider extends ChangeNotifier {
     required String password,
   }) async {
     try {
+      // If already signed in (e.g. from a prior loginAdmin attempt that
+      // found the user is not an admin), reuse the active session.
+      if (_firebaseUser != null) {
+        _role = AppRole.customer;
+        await _fetchCurrentUser();
+        notifyListeners();
+        return true;
+      }
+
       final UserCredential credential = await _auth.signInWithEmailAndPassword(
         email: email.trim(),
         password: password.trim(),
@@ -102,9 +111,11 @@ class AuthProvider extends ChangeNotifier {
       await _fetchCurrentUser();
       notifyListeners();
       return true;
-    } on FirebaseAuthException {
+    } on FirebaseAuthException catch (e) {
+      debugPrint('loginCustomer FirebaseAuthException: ${e.code}');
       return false;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('loginCustomer error: $e');
       return false;
     }
   }
@@ -127,18 +138,26 @@ class AuthProvider extends ChangeNotifier {
           .doc(credential.user!.uid)
           .get();
 
-      if (userDoc.exists && userDoc.get('isAdmin') == true) {
-        _role = AppRole.admin;
-        await _fetchCurrentUser();
-        notifyListeners();
-        return true;
-      } else {
-        // Not an admin — but keep the session alive so loginCustomer can use it
-        return false;
+      if (userDoc.exists) {
+        final data = userDoc.data() as Map<String, dynamic>?;
+        if (data != null && data['isAdmin'] == true) {
+          _role = AppRole.admin;
+          await _fetchCurrentUser();
+          notifyListeners();
+          return true;
+        }
       }
-      // Not an admin — but keep the session alive so loginCustomer can use it
+
+      // Not an admin — keep the Firebase session alive so loginCustomer
+      // can reuse it without a redundant sign-in call.
       return false;
-    } catch (_) {
+    } on FirebaseAuthException catch (e) {
+      debugPrint('loginAdmin FirebaseAuthException: ${e.code}');
+      _firebaseUser = null;
+      return false;
+    } catch (e) {
+      debugPrint('loginAdmin error: $e');
+      _firebaseUser = null;
       return false;
     }
   }
@@ -174,9 +193,11 @@ class AuthProvider extends ChangeNotifier {
       await _fetchCurrentUser();
       notifyListeners();
       return true;
-    } on FirebaseAuthException {
+    } on FirebaseAuthException catch (e) {
+      debugPrint('registerCustomer FirebaseAuthException: ${e.code} - ${e.message}');
       return false;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('registerCustomer error: $e');
       return false;
     }
   }

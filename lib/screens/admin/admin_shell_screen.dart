@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/category_provider.dart';
 import '../../providers/orders_provider.dart';
+import '../../providers/product_catalog_provider.dart';
 import '../../providers/users_provider.dart';
 import '../login_screen.dart';
 import 'admin_categories_screen.dart';
@@ -36,6 +37,7 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       try {
         await Future.wait([
+          context.read<ProductCatalogProvider>().fetchProducts(),
           context.read<CategoryProvider>().fetchCategories(),
           context.read<OrdersProvider>().fetchOrders(),
           context.read<UsersProvider>().fetchUsers(),

@@ -35,7 +35,7 @@ class PromotionsProvider extends ChangeNotifier {
           final Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
           return Promotion.fromMap(doc.id, data);
         })
-        .toList(growable: false);
+        .toList();
 
     notifyListeners();
   }

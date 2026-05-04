@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import '../models/product.dart';
 
 class CatalogProduct {
@@ -46,7 +47,7 @@ class ProductCatalogProvider extends ChangeNotifier {
               inStock: data['inStock'] ?? true,
             );
           })
-          .toList(growable: false);
+          .toList();
     } catch (error) {
       debugPrint('Failed to load products from Firestore: $error');
     }

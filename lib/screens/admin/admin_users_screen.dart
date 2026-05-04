@@ -29,7 +29,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
             leading: CircleAvatar(
               backgroundColor: Colors.green.shade100,
               child: Text(
-                user.name.substring(0, 1),
+                user.name.isNotEmpty ? user.name.substring(0, 1) : '?',
                 style: const TextStyle(fontWeight: FontWeight.w700),
               ),
             ),

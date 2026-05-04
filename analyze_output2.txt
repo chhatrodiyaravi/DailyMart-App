@@ -1,0 +1,17 @@
+﻿Analyzing DailyMart-App...                                      
+
+   info - The parameter name 'sum' matches a visible type name - lib\providers\cart_provider.dart:87:40 - avoid_types_as_parameter_names
+   info - The parameter name 'sum' matches a visible type name - lib\providers\cart_provider.dart:94:8 - avoid_types_as_parameter_names
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\screens\admin\admin_categories_screen.dart:178:63 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\screens\admin\admin_products_screen.dart:85:19 - deprecated_member_use
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\screens\admin\admin_products_screen.dart:410:21 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\screens\admin\admin_products_screen.dart:699:37 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\screens\admin\admin_products_screen.dart:704:54 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\screens\admin\admin_products_screen.dart:713:54 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\screens\register_screen.dart:55:46 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\screens\register_screen.dart:59:39 - use_build_context_synchronously
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\screens\settings\add_address_screen.dart:100:21 - deprecated_member_use
+   info - Statements in an if should be enclosed in a block - lib\screens\settings\manage_addresses_screen.dart:80:27 - curly_braces_in_flow_control_structures
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\screens\settings\manage_addresses_screen.dart:93:48 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\screens\settings\manage_addresses_screen.dart:99:48 - use_build_context_synchronously
+

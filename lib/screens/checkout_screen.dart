@@ -38,7 +38,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Widget build(BuildContext context) {
     final CartProvider cart = context.watch<CartProvider>();
     final AuthProvider auth = context.watch<AuthProvider>();
-    final addressProvider = context.watch<AddressProvider>();
+    final String deliveryAddress = auth.currentUser?.address.isNotEmpty == true
+        ? auth.currentUser!.address
+        : '221B Green Street, Bangalore';
+    final String deliveryLabel = auth.currentUser?.address.isNotEmpty == true
+        ? 'Saved Address'
+        : 'Home';
     final double itemTotal = cart.totalPrice;
     const double deliveryFee = 25;
     const double handlingFee = 8;
@@ -54,47 +59,22 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           _SectionCard(
             title: 'Delivery Address',
             icon: Icons.location_on_outlined,
-            child: selectedAddress == null
-                ? Column(
-                    children: [
-                      const Text('No address selected'),
-                      const SizedBox(height: 8),
-                      OutlinedButton.icon(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (_) => const AddAddressScreen()),
-                          );
-                        },
-                        icon: const Icon(Icons.add),
-                        label: const Text('Add Address'),
-                      ),
-                    ],
-                  )
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        selectedAddress.label,
-                        style: const TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        selectedAddress.fullAddress,
-                        style: TextStyle(color: Colors.grey.shade700),
-                      ),
-                      Text(
-                        '${selectedAddress.city}, ${selectedAddress.pincode}',
-                        style: TextStyle(color: Colors.grey.shade700),
-                      ),
-                      const SizedBox(height: 8),
-                      TextButton(
-                        onPressed: () => _showAddressPicker(context),
-                        child: const Text('Change Address'),
-                      ),
-                    ],
-                  ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  deliveryLabel,
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  deliveryAddress,
+                  style: TextStyle(color: Colors.grey.shade700),
+                ),
+                const SizedBox(height: 8),
+                TextButton(onPressed: () {}, child: const Text('Change')),
+              ],
+            ),
           ),
           const SizedBox(height: 12),
           _SectionCard(
